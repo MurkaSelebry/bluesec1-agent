@@ -43,7 +43,7 @@ def test_env_example_contains_complete_runnable_configuration() -> None:
 
     assert settings.scenario_runtime_endpoint
     assert settings.scenario_runtime_verify_tls is True
-    assert settings.scenario_runtime_arena is None
+    assert settings.scenario_runtime_arena == "practice"
     assert settings.llm_base_url
     assert settings.llm_api_key.get_secret_value()
     assert settings.scenario_runtime_token.get_secret_value()

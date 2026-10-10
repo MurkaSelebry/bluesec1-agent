@@ -8,6 +8,20 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+DRAFT_MANIFEST = ROOT / "tests/fixtures/evaluation/draft-manifest.json"
+
+
+@pytest.fixture(autouse=True)
+def deny_mutable_report_access(monkeypatch):
+    """Offline contract tests must not depend on or mutate user experiment state."""
+    original_open = Path.open
+
+    def isolated_open(path, *args, **kwargs):
+        if path.resolve().is_relative_to(ROOT / "reports"):
+            raise AssertionError("evaluation tests must use fixtures, not mutable reports")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", isolated_open)
 
 
 def module():
@@ -199,7 +213,7 @@ def test_fixture_contracts_and_scripts_are_offline(tmp_path, monkeypatch, capsys
         ),
         (
             "run_experiments",
-            ["--manifest", str(ROOT / "reports/experiments/cycle-01/manifest.json"), "--dry-run"],
+            ["--manifest", str(DRAFT_MANIFEST), "--dry-run"],
         ),
     ]:
         spec = importlib.util.spec_from_file_location(name, ROOT / f"scripts/{name}.py")
@@ -213,7 +227,7 @@ def test_fixture_contracts_and_scripts_are_offline(tmp_path, monkeypatch, capsys
 
 
 def test_manifest_gate_rejects_draft_and_wrong_review_sha(tmp_path):
-    manifest_path = ROOT / "reports/experiments/cycle-01/manifest.json"
+    manifest_path = DRAFT_MANIFEST
     manifest = json.loads(manifest_path.read_text())
     module().validate_manifest(manifest)
     with pytest.raises(ValueError, match="frozen"):
@@ -296,7 +310,7 @@ def test_manifest_hash_never_changes_with_journal_updates(tmp_path):
 
 
 def test_comparison_preserves_failed_attempt_denominator_and_zero(tmp_path):
-    manifest = json.loads((ROOT / "reports/experiments/cycle-01/manifest.json").read_text())
+    manifest = json.loads(DRAFT_MANIFEST.read_text())
     journal = module().AttemptJournal(tmp_path / "attempts.jsonl", "abc")
     count = []
 
@@ -432,7 +446,7 @@ def deny_evaluation_network(monkeypatch):
 
 
 def test_all_launchers_use_manifest_canonical_accounting_location(tmp_path):
-    manifest = json.loads((ROOT / "reports/experiments/cycle-01/manifest.json").read_text())
+    manifest = json.loads(DRAFT_MANIFEST.read_text())
     manifest["attempts_path"] = "relative/attempts.jsonl"
     with pytest.raises(ValueError, match="absolute"):
         module().validate_manifest(manifest)
@@ -454,7 +468,7 @@ def test_launcher_rejects_unfrozen_manifest_before_process_creation(tmp_path, mo
         launcher.main(
             [
                 "--manifest",
-                str(ROOT / "reports/experiments/cycle-01/manifest.json"),
+                str(DRAFT_MANIFEST),
                 "--gate",
                 str(gate),
             ]
@@ -575,7 +589,7 @@ def test_effective_configuration_rejects_environment_drift_without_exposing_keys
 
 
 def test_frozen_gate_requires_reviewed_config_and_hidden_control_hashes():
-    manifest = json.loads((ROOT / "reports/experiments/cycle-01/manifest.json").read_text())
+    manifest = json.loads(DRAFT_MANIFEST.read_text())
     manifest.update(freeze_state="frozen", integrated_sha="1" * 40)
     gate = {
         "live_ready": True,
@@ -628,7 +642,7 @@ def test_child_command_uses_canonical_env_file_and_fixed_cli_limits(tmp_path):
     spec = importlib.util.spec_from_file_location("commands", ROOT / "scripts/run_experiments.py")
     launcher = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(launcher)
-    manifest_path = ROOT / "reports/experiments/cycle-01/manifest.json"
+    manifest_path = DRAFT_MANIFEST
     manifest = json.loads(manifest_path.read_text())
     command = launcher.command_for(manifest, manifest["slots"][0], tmp_path, manifest_path)
     assert command[0] == "uv"
