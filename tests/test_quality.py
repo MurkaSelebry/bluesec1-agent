@@ -237,3 +237,26 @@ def test_slow_lease_cannot_borrow_global_cleanup_reserve():
     assert result.completion_reason == "terminated"
     assert llm.messages == []
     assert "incomplete" in session.calls[-1][1]["submission"]["reasoning"]
+
+
+def test_final_rpc_is_bounded_by_shorter_global_budget_without_duplicate():
+    class SlowTerminal(Session):
+        async def call_tool(self, name, arguments):
+            if name == "finish_investigation":
+                self.calls.append((name, arguments))
+                try:
+                    await asyncio.sleep(0.10)
+                except asyncio.CancelledError:
+                    self.terminal_state = "unknown"
+                    raise
+                self.calls.pop()
+            return await super().call_tool(name, arguments)
+
+    agent = quality(ScriptedLLM([]), cleanup_reserve_seconds=0.05)
+    agent.run_budget = Budget(0.09)
+    session = SlowTerminal()
+    with pytest.raises(TimeoutError):
+        asyncio.run(agent._investigate(session, Budget(1)))
+    assert session.terminal_state == "unknown"
+    assert session.abort_count == 0
+    assert sum(name == "finish_investigation" for name, _ in session.calls) == 1

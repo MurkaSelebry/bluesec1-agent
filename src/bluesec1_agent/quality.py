@@ -378,7 +378,8 @@ class QualitySubmissionAgent(SimpleSGRAgent):
             arguments=arguments,
         )
         try:
-            response = await session.call_tool("finish_investigation", arguments)
+            async with asyncio.timeout(budget.remaining_seconds()):
+                response = await session.call_tool("finish_investigation", arguments)
         except BaseException as error:
             self._record(
                 "tool_call_finished",
