@@ -134,3 +134,153 @@ def test_huge_untrusted_values_and_ids_cannot_exceed_context_budget():
 def test_impossibly_small_budget_is_rejected_explicitly():
     with pytest.raises(ValueError, match="max_chars"):
         build_context(EvidenceStore(), trigger_ids=(), max_chars=10, remaining_steps=1)
+
+
+def test_context_preserves_literal_and_nested_dotted_paths():
+    store = EvidenceStore()
+    store.ingest(
+        step=1,
+        tool_name="get_entity",
+        arguments={"entity_id": "p"},
+        status="ok",
+        result={
+            "id": "p",
+            "type": "windows_process",
+            "properties": {
+                "a": {"b": "nested-value"},
+                "a.b": "literal-value",
+            },
+        },
+    )
+    view = build_context(store, trigger_ids=("p",), max_chars=12000, remaining_steps=2)
+    serialized = json.dumps(view)
+    assert "nested-value" in serialized and "literal-value" in serialized
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_ambiguous_display_paths_preserve_provenance_literal_key_precedence(reverse):
+    properties = {"a": {"b": "nested-value"}, "a.b": "literal-value"}
+    if reverse:
+        properties = dict(reversed(list(properties.items())))
+    store = EvidenceStore()
+    store.ingest(
+        step=1,
+        tool_name="get_entity",
+        arguments={"entity_id": "p"},
+        status="ok",
+        result={"id": "p", "type": "windows_process", "properties": properties},
+    )
+    entry = build_context(store, trigger_ids=("p",), max_chars=12000, remaining_steps=2)[
+        "evidence"
+    ]["items"][0]
+    assert entry["fields"]["properties.a.b"] == "literal-value"
+    assert entry["uncitable_fields"] == [
+        {"path_segments": ["properties", "a", "b"], "value": "nested-value"}
+    ]
+    assert entry["omitted_field_count"] == 0
+    assert len(entry["fields"]) + len(entry["uncitable_fields"]) == 4
+
+
+def test_shadowing_by_a_parent_dict_is_not_rendered_as_citable_scalar():
+    store = EvidenceStore()
+    store.ingest(
+        step=1,
+        tool_name="get_entity",
+        arguments={"entity_id": "p"},
+        status="ok",
+        result={
+            "id": "p",
+            "type": "windows_process",
+            "properties": {
+                "a": {"b": "nested-value"},
+                "a.b": {"c": "literal-parent-value"},
+            },
+        },
+    )
+    entry = build_context(store, trigger_ids=("p",), max_chars=12000, remaining_steps=2)[
+        "evidence"
+    ]["items"][0]
+    assert "properties.a.b" not in entry["fields"]
+    assert entry["uncitable_fields"] == [
+        {"path_segments": ["properties", "a", "b"], "value": "nested-value"},
+        {"path_segments": ["properties", "a.b", "c"], "value": "literal-parent-value"},
+    ]
+    assert entry["omitted_field_count"] == 0
+
+
+def test_ambiguous_paths_in_history_retain_each_value_and_original_source():
+    store = EvidenceStore()
+    for step in (1, 2):
+        store.ingest(
+            step=step,
+            tool_name="get_entity",
+            arguments={"entity_id": "p"},
+            status="ok",
+            result={
+                "id": "p",
+                "type": "windows_process",
+                "properties": {
+                    "a": {"b": f"nested-{step}"},
+                    "a.b": f"literal-{step}",
+                },
+            },
+        )
+    entry = build_context(store, trigger_ids=("p",), max_chars=12000, remaining_steps=2)[
+        "evidence"
+    ]["items"][0]
+    for observed, step in ((entry, 2), (entry["history"][0], 1)):
+        assert observed["source_step"] == step
+        assert observed["fields"]["properties.a.b"] == f"literal-{step}"
+        assert observed["uncitable_fields"][0]["value"] == f"nested-{step}"
+        assert observed["omitted_field_count"] == 0
+
+
+@pytest.mark.parametrize("limit", [1600, 3000, 12000])
+def test_ambiguous_field_omissions_count_actual_leaves_within_char_budget(limit):
+    store = EvidenceStore()
+    properties = {}
+    for i in range(8):
+        properties[f"a{i}"] = {"b": "nested-" + "x" * 80}
+        properties[f"a{i}.b"] = "literal-" + "y" * 80
+    store.ingest(
+        step=1,
+        tool_name="get_entity",
+        arguments={"entity_id": "p"},
+        status="ok",
+        result={"id": "p", "type": "windows_process", "properties": properties},
+    )
+    view = build_context(store, trigger_ids=("p",), max_chars=limit, remaining_steps=2)
+    entry = view["evidence"]["items"][0]
+    assert len(rendered(view)) <= limit
+    shown = len(entry["fields"]) + len(entry.get("uncitable_fields", []))
+    assert shown + entry["omitted_field_count"] == 18  # id, type, and sixteen property leaves
+    if limit < 12000:
+        assert entry["omitted_field_count"] > 0
+    assert store.get("p", "entity").fields["properties"] == properties
+
+
+def test_equal_values_at_distinct_paths_do_not_erase_ambiguity():
+    store = EvidenceStore()
+    store.ingest(
+        step=1,
+        tool_name="get_entity",
+        arguments={"entity_id": "p"},
+        status="ok",
+        result={
+            "id": "p",
+            "type": "windows_process",
+            "properties": {
+                "a": {"b": "same-value"},
+                "a.b": "same-value",
+            },
+        },
+    )
+    entry = build_context(store, trigger_ids=("p",), max_chars=12000, remaining_steps=2)[
+        "evidence"
+    ]["items"][0]
+    assert entry["fields"]["properties.a.b"] == "same-value"
+    assert entry["uncitable_fields"] == [
+        {"path_segments": ["properties", "a", "b"], "value": "same-value"}
+    ]
+    assert len(entry["fields"]) + len(entry["uncitable_fields"]) == 4
+    assert entry["omitted_field_count"] == 0
