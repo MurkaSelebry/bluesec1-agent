@@ -1,6 +1,10 @@
 import asyncio
+import math
+from collections.abc import Callable
+from contextlib import suppress
+from dataclasses import dataclass
 from types import TracebackType
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from loguru import logger
@@ -10,9 +14,12 @@ from .errors import (
     RemoteClientStateError,
     RemoteProtocolError,
     RemoteRequestError,
+    is_definite_create_rejection,
+    is_definite_rejection,
 )
 from .models import (
     CloseRunCommand,
+    CloseRunOutcome,
     CloseRunReason,
     CreateRunCommand,
     DeadlinePolicy,
@@ -27,6 +34,18 @@ from .models import (
 from .session import RemoteBenchmarkSession
 from .transport.base import RemoteTransport
 from .transport.grpc import GrpcRemoteTransport
+
+
+@dataclass(frozen=True)
+class CleanupOutcome:
+    """Local cleanup knowledge, distinct from releasing the local channel."""
+
+    status: Literal["closed_confirmed", "closing_acknowledged", "unknown", "failed"]
+    run_id: str | None
+    error_type: str | None = None
+
+
+LifecycleObserver = Callable[[str, Any], None]
 
 
 class RemoteBenchmarkClient(BaseTaskClient):
@@ -46,6 +65,8 @@ class RemoteBenchmarkClient(BaseTaskClient):
         deadlines: DeadlinePolicy | None = None,
         retry_policy: RetryPolicy | None = None,
         transport: RemoteTransport | None = None,
+        lifecycle_observer: LifecycleObserver | None = None,
+        cleanup_timeout_seconds: float = 30.0,
     ) -> None:
         """
         Configure a client that creates and owns one new remote run.
@@ -62,11 +83,21 @@ class RemoteBenchmarkClient(BaseTaskClient):
             deadlines: Optional per-operation deadlines for the SDK-owned transport.
             retry_policy: Optional retry behavior for the SDK-owned transport.
             transport: Caller-owned transport for advanced configuration or tests.
+            lifecycle_observer: Synchronous lifecycle callback. create_started is a
+                strict pre-RPC durability gate; create_finished failure triggers cleanup.
+            cleanup_timeout_seconds: Total close RPC/retry/channel-close window.
 
         Raises:
             ValueError: If construction inputs or ownership are inconsistent.
 
         """
+        if not math.isfinite(cleanup_timeout_seconds) or cleanup_timeout_seconds <= 0:
+            raise ValueError("cleanup_timeout_seconds must be finite and positive")
+        self.cleanup_timeout_seconds = cleanup_timeout_seconds
+        self.cleanup_outcome: CleanupOutcome | None = None
+        self.run_creation_rejected = False
+        self.observer_errors: list[str] = []
+        self._lifecycle_observer = lifecycle_observer
         self._transport: RemoteTransport
         self._owned_transport: RemoteTransport | None
         if transport is None:
@@ -152,18 +183,58 @@ class RemoteBenchmarkClient(BaseTaskClient):
                 raise RemoteRequestError(
                     "The remote run configuration contains invalid input."
                 ) from None
+            # This callback is intentionally strict: a failed durable intent forbids the RPC.
+            try:
+                self._observe("create_started", command, strict=True)
+            except BaseException as exc:
+                self._state = "closed"
+                self.cleanup_outcome = CleanupOutcome("failed", None, type(exc).__name__)
+                if self._owned_transport is not None:
+                    with suppress(BaseException):
+                        async with asyncio.timeout(self.cleanup_timeout_seconds):
+                            await self._owned_transport.aclose()
+                raise
             try:
                 run = await self._transport.create_run(command)
+                self._run = run
+                self._state = "open"
+                self._observe("create_finished", run, strict=True)
                 if run.state != "active":
                     raise RemoteProtocolError("The runtime did not create an active run.")
-            except BaseException:
-                self._state = "closed"
-                if self._owned_transport is not None:
-                    await self._owned_transport.aclose()
+            except BaseException as exc:
+                self.run_creation_rejected = self._run is None and is_definite_create_rejection(exc)
+                self._observe("create_failed", exc)
+                if self._run is not None:
+                    # Preserve the opening/observer failure if cleanup also fails.
+                    with suppress(BaseException):
+                        await self._close_impl(
+                            reason="client_error", error_message=type(exc).__name__
+                        )
+                else:
+                    self._state = "closed"
+                    self.cleanup_outcome = CleanupOutcome(
+                        "failed" if self.run_creation_rejected else "unknown",
+                        None,
+                        type(exc).__name__,
+                    )
+                    if self._owned_transport is not None:
+                        try:
+                            async with asyncio.timeout(self.cleanup_timeout_seconds):
+                                await self._owned_transport.aclose()
+                        except BaseException:
+                            pass
                 raise
-            self._run = run
-            self._state = "open"
             return run
+
+    def _observe(self, event: str, payload: Any, *, strict: bool = False) -> None:
+        if self._lifecycle_observer is not None:
+            try:
+                self._lifecycle_observer(event, payload)
+            except Exception as exc:
+                self.observer_errors.append(type(exc).__name__)
+                if strict:
+                    raise
+                logger.warning("Lifecycle observer failed ({})", type(exc).__name__)
 
     async def start_task(self) -> RemoteBenchmarkSession | None:
         """
@@ -204,44 +275,79 @@ class RemoteBenchmarkClient(BaseTaskClient):
         *,
         reason: CloseRunReason = "client_requested",
         error_message: str | None = None,
-    ) -> None:
-        """
-        Close the remote run and then any owned transport resources.
+    ) -> CleanupOutcome:
+        """Attempt close once within a bounded window and preserve server knowledge.
 
-        Args:
-            reason: Caller-visible reason for closing an incomplete run.
-            error_message: Safe diagnostic captured by the client.
-
-        Raises:
-            Exception: The original run-close or transport-close failure after cleanup.
-
+        The outcome property is populated even when this method raises. Repeated
+        calls return that outcome and never generate a fresh logical close ID.
         """
         async with self._lock:
             if self._state == "closed":
-                return
-            run = self._run
-            self._state = "closed"
-            close_error: BaseException | None = None
-            if run is not None:
-                try:
-                    await self._transport.close_run(
-                        CloseRunCommand(
-                            run_id=run.run_id,
-                            idempotency_key=self._new_id(),
-                            reason=reason,
-                            error_message=error_message,
+                return self.cleanup_outcome or CleanupOutcome("unknown", None)
+            return await self._close_impl(reason=reason, error_message=error_message)
+
+    async def _close_impl(
+        self,
+        *,
+        reason: CloseRunReason,
+        error_message: str | None,
+    ) -> CleanupOutcome:
+        run = self._run
+        self._state = "closed"
+        self.cleanup_outcome = CleanupOutcome("unknown", run.run_id if run else None)
+        self._observe("cleanup_started", self.cleanup_outcome)
+        close_error: BaseException | None = None
+        # One outer timeout bounds the RPC's own retries and the channel close together.
+        try:
+            async with asyncio.timeout(self.cleanup_timeout_seconds):
+                if run is not None:
+                    try:
+                        response = await self._transport.close_run(
+                            CloseRunCommand(
+                                run_id=run.run_id,
+                                idempotency_key=self._new_id(),
+                                reason=reason,
+                                error_message=error_message,
+                            )
                         )
-                    )
-                except BaseException as exc:
-                    close_error = exc
-            if self._owned_transport is not None:
-                try:
-                    await self._owned_transport.aclose()
-                except BaseException as exc:
-                    if close_error is None:
+                        if (
+                            not isinstance(response, CloseRunOutcome)
+                            or response.run_id != run.run_id
+                        ):
+                            raise RemoteProtocolError("The transport returned invalid close state.")
+                        self.cleanup_outcome = CleanupOutcome(
+                            "closed_confirmed"
+                            if response.state == "closed"
+                            else "closing_acknowledged",
+                            run.run_id,
+                        )
+                    except Exception as exc:
                         close_error = exc
-            if close_error is not None:
-                raise close_error
+                        self.cleanup_outcome = CleanupOutcome(
+                            "failed" if is_definite_rejection(exc) else "unknown",
+                            run.run_id,
+                            type(exc).__name__,
+                        )
+                if self._owned_transport is not None:
+                    try:
+                        await self._owned_transport.aclose()
+                    except Exception as exc:
+                        if close_error is None:
+                            close_error = exc
+        except BaseException as exc:
+            if close_error is None:
+                close_error = exc
+            if self.cleanup_outcome.status == "unknown":
+                self.cleanup_outcome = CleanupOutcome(
+                    "unknown",
+                    run.run_id if run else None,
+                    type(exc).__name__,
+                )
+        finally:
+            self._observe("cleanup_finished", self.cleanup_outcome)
+        if close_error is not None:
+            raise close_error
+        return self.cleanup_outcome
 
     async def __aenter__(self) -> "RemoteBenchmarkClient":
         """
@@ -282,8 +388,9 @@ class RemoteBenchmarkClient(BaseTaskClient):
         except BaseException as close_error:
             if exc_value is None:
                 raise
-            logger.opt(exception=close_error).warning(
-                "Remote client cleanup failed while preserving the context exception"
+            logger.warning(
+                "Remote cleanup failed ({}) while preserving the context exception",
+                type(close_error).__name__,
             )
 
     def _require_open_run(self) -> RemoteRun:

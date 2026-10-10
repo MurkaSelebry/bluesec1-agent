@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "case_id": "10-budget-before-final",
+  "synthetic_label": "unknown",
+  "entity_count": 2,
+  "relation_count": 1,
+  "invariants": [
+    "budget_exhaustion_not_forced_benign",
+    "no_score_without_terminal_result"
+  ],
+  "official_score": null,
+  "usage": "Harness checks only; never pass this file to the investigating model.",
+  "checks": {
+    "accepted_final": false,
+    "remote_call_count": 0,
+    "abort_calls": 1,
+    "remote_finish_calls": 0,
+    "cleanup_status": "closed_confirmed"
+  }
+}

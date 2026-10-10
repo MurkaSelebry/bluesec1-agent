@@ -1,0 +1,456 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "slot_id": "01",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "smoke",
+      "attempted": true,
+      "status": "finished",
+      "run_id": "9e069ccb-a3ac-43e2-b57f-97249638e76a",
+      "schema_version": 1,
+      "trace_path": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/runs/cycle-01/01/20261010T104944.691246Z-3u9h1f9a/trace.jsonl",
+      "result_path": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/runs/cycle-01/01/20261010T104944.691246Z-3u9h1f9a/result.json",
+      "source_sha256": {
+        "trace": "b458f0824c7673f528fed7d30965dbf54c613ff28c3ec47a741fb07a3e54c54b",
+        "result": "5a1a97347ca178740678490179f62a88b91ce0107b561f4f8aa9bf0615b3da24",
+        "partial_result": null
+      },
+      "task_ids": [
+        "e80e45b9-bb8f-496c-ba5b-b95120696f5a"
+      ],
+      "task_results": [],
+      "accepted_final": null,
+      "quality_score": null,
+      "efficiency_score": null,
+      "reward": null,
+      "score_semantics": "TaskResult protobuf scores are nonoptional scalars (has_presence=false): absent wire and explicit zero cannot be distinguished. Canonical terminal JSON zero is retained; missing task_result or missing JSON score is unknown. No ListFields presence inference.",
+      "walltime_seconds": 908.618986,
+      "llm_attempts": 61,
+      "llm_decisions": 59,
+      "remote_tool_calls": 19,
+      "cache_hits": 40,
+      "repairs": 1,
+      "provenance_rejections": 0,
+      "provenance_verified": null,
+      "usage": {
+        "attempts": 61,
+        "complete": false,
+        "prompt_tokens": null,
+        "known_prompt_tokens": 1213879,
+        "prompt_tokens_known_attempts": 60,
+        "completion_tokens": null,
+        "known_completion_tokens": 19058,
+        "completion_tokens_known_attempts": 60,
+        "total_tokens": null,
+        "known_total_tokens": 1232937,
+        "total_tokens_known_attempts": 60,
+        "cached_tokens": null,
+        "known_cached_tokens": 385024,
+        "cached_tokens_known_attempts": 56,
+        "reasoning_tokens": null,
+        "known_reasoning_tokens": 2612,
+        "reasoning_tokens_known_attempts": 59
+      },
+      "cleanup": {
+        "status": "closed_confirmed",
+        "run_id": "9e069ccb-a3ac-43e2-b57f-97249638e76a",
+        "error_type": null
+      },
+      "cleanup_confirmed": true,
+      "error_category": "infrastructure",
+      "run_creation_rejected": false,
+      "artifact_errors": [],
+      "metadata": {
+        "commit": "5fbae284f1920dac7964d11d69e49b1c21646683",
+        "dirty": false,
+        "source_hashes": {
+          "src/bluesec1_agent/__init__.py": "113e3ba1aae66d8bb36c246e11db063872a35f8063a4d73293495cf5ad02015f",
+          "src/bluesec1_agent/__main__.py": "891484be4ea7e9cd6cd368bd823e1232489157eaa593cf1bbcb0a52c2c1a41d4",
+          "src/bluesec1_agent/agent.py": "dc55588d2dcdddb1901692829734f6b336f3e0de0f3ca63ffecffa376b2302a5",
+          "src/bluesec1_agent/budget.py": "dc62c8d21825a12b6ed2a81da89e8fc56c4322d39e43283821b63c4b4447d516",
+          "src/bluesec1_agent/catalog.py": "f6c85f9b6700e30245b16eba3735ef775e5c076a647148e1be58e5ef297d4c5a",
+          "src/bluesec1_agent/cli.py": "8cfa31efd407056441d547a4225b401314c74ebcd56d31da85fb5fb46884592c",
+          "src/bluesec1_agent/context.py": "4b7deae25f89ef4139e0b0e9b4fe77583f073195ec3af75ca4f45809f3578b7c",
+          "src/bluesec1_agent/contracts.py": "1f4b79121cbb139f3dd6e4802f2ea2ddde5adf84b0847af744ae080f0826f5ba",
+          "src/bluesec1_agent/evaluation.py": "b826640ac65679851cdcc4e404ac376cecdf1f304a5f8a57730286c612f1117c",
+          "src/bluesec1_agent/evidence.py": "e0f8b215f48c8eb681de98366500e9add483dc4e6435d7b108a328acb2e8bfb8",
+          "src/bluesec1_agent/frontier.py": "0ed0d2305d304224fea6633218ecf7775bd8be39a214c759c99c4d9accbedd7e",
+          "src/bluesec1_agent/llm.py": "792196fef185c33baa38d530b6f00ad7111face109c68d7d54af5cc9f77b88bc",
+          "src/bluesec1_agent/models.py": "50920d9e72cc0c351e0892d7acf3b17a6d9ea5a95480307387c431b493a7e644",
+          "src/bluesec1_agent/provenance.py": "b042b403e07e31dc99db97430b85b4ffa74c60ff5bda406e22c25ecebed7d980",
+          "src/bluesec1_agent/recording.py": "cb0ed2839d8b962a1542d2b6c408da13cd0e972bee004fca9ae4a06029ed4371",
+          "src/bluesec1_agent/run_lock.py": "0481b3e04797be344396f850727f1bb3407395bfd230ad1ef06af3c206e72e35",
+          "src/bluesec1_agent/settings.py": "7ce49f318622e0762ec2801f4a0702b485f08fcc2cdb2e342f8b4ca9e70714f5",
+          "src/bluesec1_client/__init__.py": "037a76668857bcbab4534929862715e94bca16249b51056584d963dc24df2a3e",
+          "src/bluesec1_client/base.py": "2d548a784399f1a380141ed5d5a1ebd9994ee1789644577d1580a94a7e5e7f81",
+          "src/bluesec1_client/errors.py": "c8906a4c8a32e71b89f11eaac4f62c46fdefcb45fe6bfc5404022ba70b5a1a6f",
+          "src/bluesec1_client/proto/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "src/bluesec1_client/proto/investigation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "src/bluesec1_client/proto/investigation/runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "src/bluesec1_client/proto/investigation/runtime/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2.py": "09cc150d06f6cca47ad65db2ae3469ed1563cea51a50f85c047b68919f4f85db",
+          "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2_grpc.py": "85f04149d210fcdb349e407b01750d92a2f74f72efa0e4b516b971837dc1ac1a",
+          "src/bluesec1_client/protocols.py": "4d0fc1adb811871c30aca7e24a625ad2f52029ea66d148b68ef8dc189373f102",
+          "src/bluesec1_client/remote/__init__.py": "6c93b111b350906c63f814deac74987314bbff85d5075e1d06f09983b0fb26f3",
+          "src/bluesec1_client/remote/client.py": "f6fb1e7006e422ea92c47f6899ffe6f4dc5bdf5ec14f62ebb00f433fb28ff35c",
+          "src/bluesec1_client/remote/errors.py": "5a3f2e95570fa35164450715931ae66c1ae456e2546226ece97b7012aa155e0c",
+          "src/bluesec1_client/remote/models.py": "c9d3f1a1e1f79399094fba19ff926f6185a4176952bd17020995641b21eacf36",
+          "src/bluesec1_client/remote/session.py": "dd6fa652271d84413679bce89f9192734988785e2a63d27b77ba88f7a3e95b80",
+          "src/bluesec1_client/remote/transport/__init__.py": "2a6d3076c6a6f53f66793403f0299367211801e1733ec4ee5c13f96e24c4f548",
+          "src/bluesec1_client/remote/transport/base.py": "8cca364d2ec8d1f4beb66adb49fcd5aeedafb9b87a33cbf10ffed22754e5f45c",
+          "src/bluesec1_client/remote/transport/grpc.py": "aec6c5053685ae65a2debd014544f237e6a5bcd1ad1b2ac492aada40daf70769",
+          "src/bluesec1_client/remote/transport/mappers.py": "d8aa4cfd1daad36c0420edfe22a94bd4cab06320cf9e7bf9be340d7a468c7c02"
+        },
+        "prompt_sha256": "f1acef648f53f545cb43d83413137d8a40c31c28e275a5b444bda3c22fcdf361",
+        "schema_sha256": "85a04a73bed86ab1459e791bc64478ab9a9fe94c71b807e76b84142e4365b878",
+        "configuration": {
+          "model": "gpt-6-luna",
+          "strategy": "v2",
+          "max_tasks": 1,
+          "max_steps": 60,
+          "task_timeout_seconds": 900.0,
+          "cleanup_timeout_seconds": 30.0,
+          "max_context_chars": 24000,
+          "max_llm_attempts": 3,
+          "llm_timeout_seconds": 120.0,
+          "max_completion_tokens": 16384,
+          "runtime_endpoint": "bluesec.team:443",
+          "arena": "graded",
+          "llm_base_url": "https://fluxapi.shop/v1",
+          "verify_tls": true
+        }
+      },
+      "errors": [
+        "TimeoutError"
+      ],
+      "warnings": [],
+      "cost": null,
+      "exit_code": 1,
+      "open_p1_p2": 0
+    },
+    {
+      "slot_id": "02",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "smoke",
+      "attempted": true,
+      "status": "finished",
+      "run_id": null,
+      "error_category": "unknown_run_state",
+      "error_type": "ValueError",
+      "cleanup_confirmed": null,
+      "accepted_final": null
+    },
+    {
+      "slot_id": "03",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "smoke",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "04",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "smoke",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "05",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "06",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "07",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "08",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "09",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "10",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "11",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "strong_models",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "12",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "strong_models",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "13",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "strong_models",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "14",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "strong_models",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "15",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "strong_models",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    },
+    {
+      "slot_id": "16",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "strong_models",
+      "attempted": false,
+      "status": "not_started",
+      "run_id": null,
+      "stop_reason": "executor_failed_unknown_state"
+    }
+  ],
+  "attempted_count": 2,
+  "series_complete": false,
+  "stop_reason": "executor_failed_unknown_state",
+  "warnings": [],
+  "groups": {
+    "gpt-6-luna-v2": {
+      "model": "gpt-6-luna",
+      "strategy": "v2",
+      "attempts": 1,
+      "accepted_finals": 0,
+      "incomplete_count": 1,
+      "incomplete_rate": 1.0,
+      "quality_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "efficiency_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "reward": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "walltime_seconds": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "eligible": false
+    },
+    "gpt-6-astra-v2": {
+      "model": "gpt-6-astra",
+      "strategy": "v2",
+      "attempts": 1,
+      "accepted_finals": 0,
+      "incomplete_count": 1,
+      "incomplete_rate": 1.0,
+      "quality_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "efficiency_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "reward": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "walltime_seconds": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 1,
+        "median": null
+      },
+      "eligible": false
+    },
+    "claude-opus-5-5-v2": {
+      "model": "claude-opus-5-5",
+      "strategy": "v2",
+      "attempts": 0,
+      "accepted_finals": 0,
+      "incomplete_count": 0,
+      "incomplete_rate": null,
+      "quality_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "efficiency_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "reward": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "walltime_seconds": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "eligible": false
+    },
+    "gpt-6.1-sol-v2": {
+      "model": "gpt-6.1-sol",
+      "strategy": "v2",
+      "attempts": 0,
+      "accepted_finals": 0,
+      "incomplete_count": 0,
+      "incomplete_rate": null,
+      "quality_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "efficiency_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "reward": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "walltime_seconds": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "eligible": false
+    },
+    "gpt-6-luna-baseline": {
+      "model": "gpt-6-luna",
+      "strategy": "baseline",
+      "attempts": 0,
+      "accepted_finals": 0,
+      "incomplete_count": 0,
+      "incomplete_rate": null,
+      "quality_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "efficiency_score": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "reward": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "walltime_seconds": {
+        "values": [],
+        "missing_accepted": 0,
+        "missing_all_attempts": 0,
+        "median": null
+      },
+      "eligible": false
+    }
+  },
+  "recommendation": "investigate_then_collect_more",
+  "candidate_ranking": [],
+  "changes_default": false,
+  "precision": null,
+  "recall": null,
+  "limitations": [
+    "small_unpaired_random_live_tasks",
+    "no_ground_truth",
+    "synthetic_checks_do_not_measure_model_accuracy",
+    "smoke_tasks_not_independent_after_prompt_tuning"
+  ],
+  "score_semantics": "TaskResult protobuf scores are nonoptional scalars (has_presence=false): absent wire and explicit zero cannot be distinguished. Canonical terminal JSON zero is retained; missing task_result or missing JSON score is unknown. No ListFields presence inference.",
+  "manifest_sha256": "99522ba4f727ec87869b33eb66545a51f5cee8d0be5f3b642dc0b9ddabdd8361",
+  "integrated_sha": "5fbae284f1920dac7964d11d69e49b1c21646683"
+}

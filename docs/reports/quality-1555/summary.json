@@ -1,0 +1,294 @@
+{
+  "status": "completed",
+  "run_id": "babf266b-f7c1-452a-934d-7465e4d7c298",
+  "source_commit": "9fdf92cc0d9b80bdd77c9d757a43c2f08230f7f8",
+  "arena": "graded",
+  "requested_model": "gpt-6-astra",
+  "returned_models": {
+    "gpt-6-astra": 31,
+    "unknown": 27
+  },
+  "task_results_received": 40,
+  "unique_task_ids": 40,
+  "terminated": 40,
+  "decision_origins": {
+    "model": 22,
+    "incomplete_fallback": 12,
+    "coordinator_advisory": 6
+  },
+  "verdicts": {
+    "malicious": 35,
+    "benign": 5
+  },
+  "malicious_empty_ir_by_origin": {
+    "model": 1,
+    "incomplete_fallback": 12
+  },
+  "benign_empty_evidence_by_origin": {},
+  "last_task_finished_at_utc": "2026-10-10T12:43:15.041008+00:00",
+  "cleanup_finished_at_utc": "2026-10-10T12:43:15.298331+00:00",
+  "deadline_utc": "2026-10-10T12:55:00+00:00",
+  "last_task_before_deadline": true,
+  "cleanup_before_deadline": true,
+  "cleanup": {
+    "status": "closed_confirmed",
+    "run_id": "babf266b-f7c1-452a-934d-7465e4d7c298",
+    "error_type": null
+  },
+  "shared_intent_absent": true,
+  "provenance_verified": true,
+  "terminal_calls": 40,
+  "terminal_calls_per_task": {
+    "min": 1,
+    "median": 1.0,
+    "max": 1
+  },
+  "llm_attempts": 58,
+  "llm_errors": {
+    "cancelled": 5,
+    "http_400": 22
+  },
+  "local_validation_issues": {
+    "not_observed": 8,
+    "unknown_field": 2
+  },
+  "read_calls_finished": 309,
+  "read_errors": {
+    "TimeoutError": 53
+  },
+  "observed_objects_per_task": {
+    "min": 1,
+    "median": 5.5,
+    "max": 17
+  },
+  "tokens": {
+    "prompt_tokens": {
+      "known_sum": 417507,
+      "complete": false,
+      "missing_attempts": 27
+    },
+    "completion_tokens": {
+      "known_sum": 13753,
+      "complete": false,
+      "missing_attempts": 27
+    },
+    "total_tokens": {
+      "known_sum": 431260,
+      "complete": false,
+      "missing_attempts": 27
+    },
+    "cached_tokens": {
+      "known_sum": 115456,
+      "complete": false,
+      "missing_attempts": 41
+    },
+    "reasoning_tokens": {
+      "known_sum": 1147,
+      "complete": false,
+      "missing_attempts": 48
+    }
+  },
+  "quality_score": null,
+  "score_status": "graded score hidden until reveal; TaskResult termination is completion only",
+  "quality_improvement_measured": false,
+  "external_provider_diagnostic": {
+    "purpose": "Single minimal provider diagnostic outside graded run",
+    "model": "gpt-6-astra",
+    "max_completion_tokens": 64,
+    "not_part_of_run": true,
+    "status": "error",
+    "error_type": "APITimeoutError",
+    "elapsed_seconds": 5.72,
+    "attempts": 1,
+    "usage": null,
+    "included_in_graded_run_counts": false
+  },
+  "known_limitations": [
+    {
+      "kind": "coverage_accounting",
+      "detail": "Caught read exceptions are recorded in tool_call_finished but not ingested into EvidenceStore, so case evidence.coverage.failed_results undercounts them. Raw timeout events must be counted separately. Unread references remain unresolved, never observed."
+    },
+    {
+      "kind": "semantic_uncertainty",
+      "detail": "Coordinator review of early cases found that authorization or script contents sometimes remained unobserved. A schema/provenance-valid final does not establish verdict accuracy or complete response scope."
+    },
+    {
+      "kind": "graded_scores",
+      "detail": "Graded quality scores remain hidden until reveal; wire scalar zeros do not prove zero quality and TaskResult completion counts do not measure correctness."
+    },
+    {
+      "kind": "bounded_navigation",
+      "detail": "At most 24 graph reads within eight seconds, three seconds per read. Evidence outside that bounded view remains unresolved."
+    },
+    {
+      "kind": "specific_semantic_review",
+      "source": "coordinator review of live cases 4-10; no ground-truth labels available",
+      "cases": [
+        {
+          "task_id_prefixes": [
+            "0a97c96a",
+            "532ebd4d"
+          ],
+          "finding": "Malicious verdict despite reasoning explicitly stating insufficient or unestablished maliciousness; confidence and verdict are inconsistent."
+        },
+        {
+          "task_id_prefix": "454e5006",
+          "finding": "Observed setup64 digital_signature was valid while signed/signer were null; model described signature state as unknown, overlooking the positive field."
+        },
+        {
+          "task_id_prefix": "8c90ca63",
+          "finding": "Command evidence described an attempt to overwrite eight bytes in HENGCE-fw-v5.7.9.bin; model overstated it as a confirmed write and changed filename to ENGCE. No successful write fact was observed."
+        }
+      ]
+    },
+    {
+      "kind": "fallback_diagnostic",
+      "task_id": "85e4d703-88d5-411a-b32f-32f291d81a4d",
+      "provider_failure": "TimeoutError (raw trace confirmed)",
+      "backup_failure": "Timely identity-matched backup had four unknown_field violations for nested parameter_binding.ArgumentList/ComputerName citations missing properties. prefix. Exact offline EvidenceStore replay confirms four errors before correction and zero after correction.",
+      "source": "Confirmed offline replay at reports/reviews/advisory-path-replay.json; no remote calls, original archive unchanged."
+    },
+    {
+      "kind": "fast_provider_failure",
+      "detail": "From task 92f9f7e2 onward, repeated HTTP 400 responses caused two rapid failed model attempts and explicit incomplete fallback before an external advisor could respond. This frozen design has no bounded advisory wait after rapid provider failures. Precise HTTP 400 cause is unknown: the safe model client records the category but no response body; local console logs contain no body. Q made no extra API probes, aborts, or restarts; coordinator explicitly directed finishing the same run. Coordinator separately made one minimal diagnostic request, which timed out and is excluded from graded-run counts."
+    }
+  ],
+  "artifacts": {
+    "run_directory": "reports/runs/quality-1555/20261010T122641.766105Z-l_bcorp4",
+    "task_results": "reports/experiments/quality-1555/task-results.json",
+    "authorization": "reports/experiments/quality-1555/authorization.json"
+  },
+  "trace_sha256": "cb548169c2c074bc813252dfdd51fe0116ccf41103ca9450666efa026e8fc0b2",
+  "result_sha256": "426c8d1f54c9751295c46da51016d40926d05b5d48fe915353734e7f469a54e8",
+  "shared_lock_free_verified": true,
+  "final_verification_at_utc": "2026-10-10T12:44:05.408474+00:00",
+  "user_reported_provider_restored": true,
+  "provider_http_400_body_available": false,
+  "public_status_verification": {
+    "url": "https://bluesec.team/runs/babf266b-f7c1-452a-934d-7465e4d7c298?lang=en",
+    "fetched_at_utc": "2026-10-10T12:44:50.118364+00:00",
+    "http_status": 200,
+    "requests_made": 1,
+    "credentials_sent": false,
+    "redirects_followed": false,
+    "sha256": "8b3ba69bccfb2eb7c39c7f8559bcc9cc48093ae7c9f82bedc822eea345e03c25",
+    "visible_text_file": "reports/experiments/quality-1555/public-run-visible.txt",
+    "public_status": "Completed",
+    "public_score": "hidden",
+    "per_task_breakdown": "hidden until results reveal",
+    "public_finished_utc": "2026-10-10 12:43 UTC",
+    "public_duration": "00:14:59"
+  },
+  "publication": {
+    "schema_version": 1,
+    "kind": "portable_derived_report",
+    "source_summary_sha256": "0edd263e22588f035843395b8dd2954784488d61fc4fb8abc9abbca23d25e9f6",
+    "snapshot_date": "2026-10-10",
+    "score_refreshed_during_publication": false,
+    "raw_investigation_payloads_included": false
+  },
+  "timing": {
+    "events_utc": {
+      "run_prepared": "2026-10-10T12:26:41.812410+00:00",
+      "run_started": "2026-10-10T12:26:44.256055+00:00",
+      "cleanup_finished": "2026-10-10T12:43:15.298331+00:00",
+      "run_finished": "2026-10-10T12:43:15.299119+00:00",
+      "first_task_started": "2026-10-10T12:26:48.453962+00:00",
+      "last_task_finished": "2026-10-10T12:43:15.041008+00:00"
+    },
+    "full_local_wall_seconds": 993.486709,
+    "local_wall_definition": "run_finished minus run_prepared",
+    "public_duration": "00:14:59",
+    "public_duration_definition": "Unknown platform calculation; distinct from full local wall time",
+    "goal_seconds": 1571,
+    "goal_scope": "Q preparation, execution and reporting; not the entire development day",
+    "codex_goal_tokens": 217819,
+    "codex_goal_tokens_are_provider_usage": false
+  },
+  "run_design": {
+    "read_limit": 24,
+    "read_seconds_max": 8,
+    "per_read_timeout": 3,
+    "task_seconds_max": 60,
+    "terminal_reserve": 9,
+    "cleanup_reserve": 35,
+    "expected_lease_allowance_per_task": 8,
+    "lease_timeout": 20,
+    "terminal_rpc_timeout": 8,
+    "runtime_attempts": 1,
+    "model_completion_tokens": 4096,
+    "model_attempts_max": 2,
+    "model_requested": "gpt-6-astra"
+  },
+  "frozen_source_hashes": {
+    "src/bluesec1_agent/__init__.py": "113e3ba1aae66d8bb36c246e11db063872a35f8063a4d73293495cf5ad02015f",
+    "src/bluesec1_agent/__main__.py": "891484be4ea7e9cd6cd368bd823e1232489157eaa593cf1bbcb0a52c2c1a41d4",
+    "src/bluesec1_agent/agent.py": "04bb0cc43f6dc08af6ca3be47f6bef752761c504ccd42eebf45759b9c81735af",
+    "src/bluesec1_agent/budget.py": "f167c6f0111a9e268d27b4fe54072b34db635eb3ea33a8511c9a8befc92472db",
+    "src/bluesec1_agent/catalog.py": "f6c85f9b6700e30245b16eba3735ef775e5c076a647148e1be58e5ef297d4c5a",
+    "src/bluesec1_agent/cli.py": "ead6f6295b4ba4a1431177457c2d1d93754bf6a5c04550e60bb8b513d211f1f7",
+    "src/bluesec1_agent/context.py": "84707327edfbab450f434baafbbe9117fa43e40914ea2f217691b100bf27fc60",
+    "src/bluesec1_agent/contracts.py": "1f4b79121cbb139f3dd6e4802f2ea2ddde5adf84b0847af744ae080f0826f5ba",
+    "src/bluesec1_agent/deadline.py": "9339da2e6f9c00b16bebf4e7cb4f60ca58ef54e5965b31379d7af0c10e9685f9",
+    "src/bluesec1_agent/evaluation.py": "b826640ac65679851cdcc4e404ac376cecdf1f304a5f8a57730286c612f1117c",
+    "src/bluesec1_agent/evidence.py": "db1ab4a8606eee88e4882ab03b06bd80ab7abac11078c5938bf3c78243529543",
+    "src/bluesec1_agent/frontier.py": "2cccbb225e6dd9fee0f843ac6893aa035dc6253d5ec05a896e128adf2590ff73",
+    "src/bluesec1_agent/llm.py": "2fc7c5cca4ce4ac14931c698a16d257bf499610a8780ec44419df4a631b313b6",
+    "src/bluesec1_agent/models.py": "50920d9e72cc0c351e0892d7acf3b17a6d9ea5a95480307387c431b493a7e644",
+    "src/bluesec1_agent/provenance.py": "b042b403e07e31dc99db97430b85b4ffa74c60ff5bda406e22c25ecebed7d980",
+    "src/bluesec1_agent/quality.py": "ad5058defbdd8ba13dc44974aa75fab414deb4493768406fd9f7700b79c97efd",
+    "src/bluesec1_agent/recording.py": "cb0ed2839d8b962a1542d2b6c408da13cd0e972bee004fca9ae4a06029ed4371",
+    "src/bluesec1_agent/run_lock.py": "0481b3e04797be344396f850727f1bb3407395bfd230ad1ef06af3c206e72e35",
+    "src/bluesec1_agent/settings.py": "7ce49f318622e0762ec2801f4a0702b485f08fcc2cdb2e342f8b4ca9e70714f5",
+    "src/bluesec1_client/__init__.py": "037a76668857bcbab4534929862715e94bca16249b51056584d963dc24df2a3e",
+    "src/bluesec1_client/base.py": "2d548a784399f1a380141ed5d5a1ebd9994ee1789644577d1580a94a7e5e7f81",
+    "src/bluesec1_client/errors.py": "c8906a4c8a32e71b89f11eaac4f62c46fdefcb45fe6bfc5404022ba70b5a1a6f",
+    "src/bluesec1_client/proto/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/runtime/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2.py": "09cc150d06f6cca47ad65db2ae3469ed1563cea51a50f85c047b68919f4f85db",
+    "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2_grpc.py": "85f04149d210fcdb349e407b01750d92a2f74f72efa0e4b516b971837dc1ac1a",
+    "src/bluesec1_client/protocols.py": "4d0fc1adb811871c30aca7e24a625ad2f52029ea66d148b68ef8dc189373f102",
+    "src/bluesec1_client/remote/__init__.py": "6c93b111b350906c63f814deac74987314bbff85d5075e1d06f09983b0fb26f3",
+    "src/bluesec1_client/remote/client.py": "f6fb1e7006e422ea92c47f6899ffe6f4dc5bdf5ec14f62ebb00f433fb28ff35c",
+    "src/bluesec1_client/remote/errors.py": "5a3f2e95570fa35164450715931ae66c1ae456e2546226ece97b7012aa155e0c",
+    "src/bluesec1_client/remote/models.py": "c9d3f1a1e1f79399094fba19ff926f6185a4176952bd17020995641b21eacf36",
+    "src/bluesec1_client/remote/session.py": "dd6fa652271d84413679bce89f9192734988785e2a63d27b77ba88f7a3e95b80",
+    "src/bluesec1_client/remote/transport/__init__.py": "2a6d3076c6a6f53f66793403f0299367211801e1733ec4ee5c13f96e24c4f548",
+    "src/bluesec1_client/remote/transport/base.py": "8cca364d2ec8d1f4beb66adb49fcd5aeedafb9b87a33cbf10ffed22754e5f45c",
+    "src/bluesec1_client/remote/transport/grpc.py": "aec6c5053685ae65a2debd014544f237e6a5bcd1ad1b2ac492aada40daf70769",
+    "src/bluesec1_client/remote/transport/mappers.py": "d8aa4cfd1daad36c0420edfe22a94bd4cab06320cf9e7bf9be340d7a468c7c02"
+  },
+  "frozen_configuration": {
+    "model": "gpt-6-astra",
+    "strategy": "v2",
+    "deadline_submit": false,
+    "quality_submit": true,
+    "quality_deadline_epoch": 1791636900.0,
+    "max_tasks": 40,
+    "max_steps": 100,
+    "task_timeout_seconds": 60.0,
+    "cleanup_timeout_seconds": 30.0,
+    "max_context_chars": 32000,
+    "max_llm_attempts": 1,
+    "llm_timeout_seconds": 45.0,
+    "max_completion_tokens": 4096,
+    "runtime_endpoint": "bluesec.team:443",
+    "arena": "graded",
+    "llm_base_url": "https://fluxapi.shop/v1",
+    "verify_tls": true
+  },
+  "integration": {
+    "branch": "codex/bluesec-cycle-01",
+    "commits": [
+      "cd17085",
+      "6f222d9",
+      "d3fa385"
+    ],
+    "verified_source_head_before_report": "fd20546319f579dfdf03f1f058383c08f0ce9872",
+    "pytest_passed": 317,
+    "ruff": "passed",
+    "live_run_preflight_pytest_passed": 311
+  }
+}

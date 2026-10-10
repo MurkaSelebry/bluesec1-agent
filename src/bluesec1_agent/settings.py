@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -64,11 +65,26 @@ class Settings(BaseSettings):
         default=3,
         validation_alias="LLM_MAX_STEP_RETRIES",
         ge=1,
-        le=5,
+        le=3,
     )
     agent_max_steps: int = Field(
         default=100,
         validation_alias="BLUESEC_AGENT_MAX_STEPS",
         ge=1,
         le=100,
+    )
+    agent_strategy: Literal["baseline", "v2"] = Field(
+        default="v2", validation_alias="BLUESEC_AGENT_STRATEGY"
+    )
+    task_timeout_seconds: float = Field(
+        default=900.0, validation_alias="BLUESEC_TASK_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False
+    )
+    cleanup_timeout_seconds: float = Field(
+        default=30.0, validation_alias="BLUESEC_CLEANUP_TIMEOUT_SECONDS", gt=0, allow_inf_nan=False
+    )
+    max_context_chars: int = Field(
+        default=24_000, validation_alias="BLUESEC_MAX_CONTEXT_CHARS", ge=1000
+    )
+    runtime_state_dir: Path | None = Field(
+        default=None, validation_alias="BLUESEC_RUNTIME_STATE_DIR"
     )

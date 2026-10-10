@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "case_id": "03-suspicious-name-only",
+  "synthetic_label": "unknown",
+  "entity_count": 2,
+  "relation_count": 1,
+  "invariants": [
+    "name_alone_not_ground_truth"
+  ],
+  "official_score": null,
+  "usage": "Harness checks only; never pass this file to the investigating model.",
+  "checks": {
+    "accepted_final": false,
+    "remote_call_count": 1,
+    "abort_calls": 1,
+    "violation_codes": [
+      "unknown_object"
+    ],
+    "remote_finish_calls": 0,
+    "cleanup_status": "closed_confirmed"
+  }
+}

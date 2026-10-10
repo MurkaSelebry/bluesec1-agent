@@ -8,8 +8,10 @@ from ..errors import TaskAlreadyFinishedError
 from ..protocols import PublicTask, TaskResult, ToolCallResult
 from .errors import (
     RemoteClientStateError,
+    RemoteOutcomeUnknownError,
     RemoteProtocolError,
     RemoteRequestError,
+    is_definite_rejection,
 )
 from .models import (
     AbortTaskCommand,
@@ -51,6 +53,24 @@ class RemoteBenchmarkSession(BaseTaskSession):
         self._terminal_result: TaskResult | None = None
         self._aborted_result: TaskResult | None = None
         self._lock = asyncio.Lock()
+        self._unknown_terminal_id: str | None = None
+
+    @property
+    def terminal_state(self) -> str:
+        if self._terminal_result is not None:
+            return "terminal"
+        return "unknown" if self._unknown_terminal_id is not None else "active"
+
+    @property
+    def terminal_result(self) -> TaskResult | None:
+        return self._terminal_result
+
+    def _require_known_terminal_state(self) -> None:
+        if self._unknown_terminal_id is not None:
+            raise RemoteOutcomeUnknownError(
+                "The terminal request outcome is unknown; no new task mutation is allowed.",
+                request_id=self._unknown_terminal_id,
+            )
 
     @property
     def task(self) -> PublicTask:
@@ -93,7 +113,7 @@ class RemoteBenchmarkSession(BaseTaskSession):
             RemoteClientStateError: If the parent client has closed.
             TaskAlreadyFinishedError: If this session is already terminal.
             RemoteRequestError: If local tool inputs are invalid.
-            RemoteProtocolError: If a fake or custom transport returns mismatched identifiers.
+            RemoteOutcomeUnknownError: If a terminal or protocol response is indeterminate.
 
         """
         async with self._lock:
@@ -111,31 +131,52 @@ class RemoteBenchmarkSession(BaseTaskSession):
                 )
             except ValueError:
                 raise RemoteRequestError("The tool call contains invalid input.") from None
-            outcome = await self._transport.call_tool(command)
-            result = outcome.result
-            if (
-                outcome.run_id != self._run_id
-                or outcome.call_id != command.call_id
-                or result.task_id != self.task_id
-                or result.tool_name != tool_name
-            ):
-                raise RemoteProtocolError(
-                    "The transport returned mismatched tool-call identifiers."
+            may_be_terminal = tool_name == "finish_investigation"
+            try:
+                outcome = await self._transport.call_tool(command)
+                result = outcome.result
+                may_be_terminal = may_be_terminal or bool(
+                    result.terminated or result.truncated or result.task_result is not None
                 )
-            if result.task_result is not None:
                 if (
-                    type(result.task_result) is not TaskResult
-                    or result.task_result.task_id != self.task_id
+                    outcome.run_id != self._run_id
+                    or outcome.call_id != command.call_id
+                    or result.task_id != self.task_id
+                    or result.tool_name != tool_name
                 ):
                     raise RemoteProtocolError(
-                        "The transport returned an invalid public task result."
+                        "The transport returned mismatched tool-call identifiers."
                     )
-                if not (result.terminated or result.truncated):
-                    raise RemoteProtocolError("The transport returned invalid terminal task state.")
-                self._terminal_result = result.task_result
-            elif result.terminated or result.truncated:
-                raise RemoteProtocolError("The transport omitted the terminal task result.")
-            return result
+                if result.task_result is not None:
+                    if (
+                        type(result.task_result) is not TaskResult
+                        or result.task_result.task_id != self.task_id
+                    ):
+                        raise RemoteProtocolError(
+                            "The transport returned an invalid public task result."
+                        )
+                    if not (result.terminated or result.truncated):
+                        raise RemoteProtocolError(
+                            "The transport returned invalid terminal task state."
+                        )
+                    self._terminal_result = result.task_result
+                elif result.terminated or result.truncated:
+                    raise RemoteProtocolError("The transport omitted the terminal task result.")
+                return result
+            except BaseException as exc:
+                # The SDK may reject a malformed terminal response before exposing
+                # its flags. A protocol failure cannot prove the task is still active.
+                if (may_be_terminal or isinstance(exc, RemoteProtocolError)) and not (
+                    is_definite_rejection(exc)
+                ):
+                    self._unknown_terminal_id = command.call_id
+                    if isinstance(exc, Exception):
+                        raise RemoteOutcomeUnknownError(
+                            "The tool response was lost or invalid; "
+                            "its terminal outcome is unknown.",
+                            request_id=command.call_id,
+                        ) from exc
+                raise
 
     async def abort_task(self, *, error_message: str | None = None) -> TaskResult:
         """
@@ -157,6 +198,7 @@ class RemoteBenchmarkSession(BaseTaskSession):
         async with self._lock:
             if not self._is_client_open():
                 raise RemoteClientStateError("The parent remote client is closed.")
+            self._require_known_terminal_state()
             if self._aborted_result is not None:
                 return self._aborted_result
             if self._terminal_result is not None:
@@ -170,16 +212,28 @@ class RemoteBenchmarkSession(BaseTaskSession):
                 )
             except ValueError:
                 raise RemoteRequestError("The task-abort request contains invalid input.") from None
-            outcome = await self._transport.abort_task(command)
-            if (
-                outcome.run_id != self._run_id
-                or type(outcome.task_result) is not TaskResult
-                or outcome.task_result.task_id != self.task_id
-            ):
-                raise RemoteProtocolError("The transport returned mismatched abort identifiers.")
-            self._terminal_result = outcome.task_result
-            self._aborted_result = outcome.task_result
-            return outcome.task_result
+            try:
+                outcome = await self._transport.abort_task(command)
+                if (
+                    outcome.run_id != self._run_id
+                    or type(outcome.task_result) is not TaskResult
+                    or outcome.task_result.task_id != self.task_id
+                ):
+                    raise RemoteProtocolError(
+                        "The transport returned mismatched abort identifiers."
+                    )
+                self._terminal_result = outcome.task_result
+                self._aborted_result = outcome.task_result
+                return outcome.task_result
+            except BaseException as exc:
+                if not is_definite_rejection(exc):
+                    self._unknown_terminal_id = command.idempotency_key
+                    if isinstance(exc, Exception):
+                        raise RemoteOutcomeUnknownError(
+                            "The abort response was lost or invalid; its outcome is unknown.",
+                            request_id=command.idempotency_key,
+                        ) from exc
+                raise
 
     def _require_active(self) -> None:
         """
@@ -192,6 +246,7 @@ class RemoteBenchmarkSession(BaseTaskSession):
         """
         if not self._is_client_open():
             raise RemoteClientStateError("The parent remote client is closed.")
+        self._require_known_terminal_state()
         if self._terminal_result is not None:
             raise TaskAlreadyFinishedError("The remote task has already finished.")
 

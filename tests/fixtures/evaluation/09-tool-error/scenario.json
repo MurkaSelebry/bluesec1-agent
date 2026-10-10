@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "case_id": "09-tool-error",
+  "description": "Failed reads must not promote response-shaped facts.",
+  "origin": {
+    "synthetic": true,
+    "partition": "development",
+    "author": "E",
+    "source": "cycle-01-plan-section-6",
+    "revision": 2
+  },
+  "observation": {
+    "alert_text": {
+      "trigger_entities": [
+        {
+          "id": "trigger",
+          "type": "windows_process"
+        }
+      ]
+    }
+  },
+  "graph": {
+    "entities": [
+      {
+        "type": "windows_process",
+        "properties": {},
+        "relation_ids": {
+          "incoming": [
+            "edge-1"
+          ],
+          "outgoing": []
+        },
+        "id": "trigger"
+      },
+      {
+        "type": "windows_process",
+        "properties": {},
+        "relation_ids": {
+          "incoming": [],
+          "outgoing": [
+            "edge-1"
+          ]
+        },
+        "id": "neighbor"
+      }
+    ],
+    "relations": [
+      {
+        "type": "parent_of",
+        "source_id": "neighbor",
+        "target_id": "trigger",
+        "properties": {},
+        "id": "edge-1"
+      }
+    ]
+  },
+  "faults": {
+    "tool_error": true,
+    "step_limit": 60,
+    "lost_terminal_response": false,
+    "unsupported_required_field": null,
+    "tool_error_count": 1
+  },
+  "scripted_actions": [
+    {
+      "tool": "get_entity",
+      "entity_id": "trigger",
+      "reasoning": "Read a referenced entity."
+    },
+    {
+      "tool": "finish_investigation",
+      "submission": {
+        "verdict": "benign",
+        "reasoning": "Synthetic provenance probe; no classification inference.",
+        "legitimacy_evidence": [
+          {
+            "anchor": "entity",
+            "entity_id": "trigger",
+            "property_fields": [
+              "approved"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "tool": "get_entity",
+      "entity_id": "trigger",
+      "reasoning": "Read a referenced entity."
+    },
+    {
+      "tool": "finish_investigation",
+      "submission": {
+        "verdict": "malicious",
+        "reasoning": "Synthetic observed-entity probe; no classification inference.",
+        "ir_artifacts": [
+          {
+            "entity_id": "trigger",
+            "kind": "process_observed"
+          }
+        ]
+      }
+    }
+  ],
+  "driver_limits": {
+    "max_steps": 6,
+    "max_context_chars": 6000
+  }
+}

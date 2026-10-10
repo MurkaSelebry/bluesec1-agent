@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "case_id": "01-malicious-normal-parent",
+  "synthetic_label": "malicious",
+  "entity_count": 3,
+  "relation_count": 2,
+  "invariants": [
+    "ordinary_parent_does_not_discharge_outgoing_lead",
+    "only_observed_IR_entities"
+  ],
+  "official_score": null,
+  "usage": "Harness checks only; never pass this file to the investigating model.",
+  "checks": {
+    "accepted_final": true,
+    "remote_call_count": 6,
+    "abort_calls": 0,
+    "frontier_at_decision": {
+      "decision_index": 3,
+      "object_id": "edge-2"
+    },
+    "cleanup_status": "closed_confirmed"
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "cycle_id": "cycle-01",
+  "freeze_state": "draft",
+  "integrated_sha": null,
+  "limits": {
+    "max_attempts": 16,
+    "max_tasks": 1,
+    "max_steps": 60,
+    "task_timeout_seconds": 900,
+    "cleanup_timeout_seconds": 30,
+    "max_context_chars": 24000
+  },
+  "configurations": {
+    "gpt-6-luna-v2": {
+      "model": "gpt-6-luna",
+      "strategy": "v2"
+    },
+    "gpt-6-astra-v2": {
+      "model": "gpt-6-astra",
+      "strategy": "v2"
+    },
+    "claude-opus-5-5-v2": {
+      "model": "claude-opus-5-5",
+      "strategy": "v2"
+    },
+    "gpt-6.1-sol-v2": {
+      "model": "gpt-6.1-sol",
+      "strategy": "v2"
+    },
+    "gpt-6-luna-baseline": {
+      "model": "gpt-6-luna",
+      "strategy": "baseline"
+    }
+  },
+  "slots": [
+    {
+      "slot_id": "01",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "02",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "03",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "04",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "05",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "06",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "07",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "08",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "09",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "10",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "11",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "12",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "13",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "14",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "15",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "16",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "strong_models"
+    }
+  ],
+  "stop_policy": [
+    "unknown_run_state",
+    "auth",
+    "schema",
+    "capacity",
+    "two_consecutive_infrastructure_failures"
+  ],
+  "selection_policy": {
+    "id": "cycle-01-conservative-v1",
+    "changes_default": false,
+    "min_accepted_with_quality": 3,
+    "requires_verified_provenance": true,
+    "requires_confirmed_cleanup": true,
+    "requires_no_open_p1_p2": true,
+    "ranking": [
+      "median_quality_desc",
+      "median_efficiency_desc_if_complete",
+      "median_walltime_asc"
+    ],
+    "incomplete_or_stopped_or_all_zero": "investigate_then_collect_more",
+    "tie": "no_preference"
+  },
+  "runtime_state_dir": "/synthetic/evaluation/runtime-state",
+  "run_artifacts_dir": "/synthetic/evaluation/runs",
+  "attempts_path": "/synthetic/evaluation/attempts.jsonl",
+  "canonical_env_file": "/synthetic/evaluation/offline.env"
+}
