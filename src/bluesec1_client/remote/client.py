@@ -14,6 +14,7 @@ from .errors import (
     RemoteClientStateError,
     RemoteProtocolError,
     RemoteRequestError,
+    is_definite_create_rejection,
     is_definite_rejection,
 )
 from .models import (
@@ -94,6 +95,7 @@ class RemoteBenchmarkClient(BaseTaskClient):
             raise ValueError("cleanup_timeout_seconds must be finite and positive")
         self.cleanup_timeout_seconds = cleanup_timeout_seconds
         self.cleanup_outcome: CleanupOutcome | None = None
+        self.run_creation_rejected = False
         self.observer_errors: list[str] = []
         self._lifecycle_observer = lifecycle_observer
         self._transport: RemoteTransport
@@ -200,6 +202,7 @@ class RemoteBenchmarkClient(BaseTaskClient):
                 if run.state != "active":
                     raise RemoteProtocolError("The runtime did not create an active run.")
             except BaseException as exc:
+                self.run_creation_rejected = self._run is None and is_definite_create_rejection(exc)
                 self._observe("create_failed", exc)
                 if self._run is not None:
                     # Preserve the opening/observer failure if cleanup also fails.
@@ -210,7 +213,7 @@ class RemoteBenchmarkClient(BaseTaskClient):
                 else:
                     self._state = "closed"
                     self.cleanup_outcome = CleanupOutcome(
-                        "failed" if is_definite_rejection(exc) else "unknown",
+                        "failed" if self.run_creation_rejected else "unknown",
                         None,
                         type(exc).__name__,
                     )

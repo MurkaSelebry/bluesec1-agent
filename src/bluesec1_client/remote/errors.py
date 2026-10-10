@@ -1,4 +1,4 @@
-from ..errors import TaskClientError
+from ..errors import RunCapacityExceededError, TaskClientError
 
 
 class RemoteClientError(TaskClientError):
@@ -98,4 +98,20 @@ def is_definite_rejection(error: BaseException) -> bool:
             CompetitionClosedError,
             RemoteRateLimitError,
         ),
+    )
+
+
+def is_definite_create_rejection(error: BaseException) -> bool:
+    """Prove non-allocation only for explicit CreateRun rejection categories.
+
+    Run-capacity reasons are operation-specific; never apply this expansion to
+    terminal calls, close, or unknown capacity subclasses/reasons.
+    """
+    return is_definite_rejection(error) or (
+        isinstance(error, RunCapacityExceededError)
+        and error.reason
+        in {
+            "SUBJECT_ACTIVE_RUN_LIMIT_REACHED",
+            "PROCESS_ACTIVE_RUN_LIMIT_REACHED",
+        }
     )

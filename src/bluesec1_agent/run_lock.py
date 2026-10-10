@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Self
 
-from bluesec1_client.remote.errors import is_definite_rejection
+from bluesec1_client.remote.errors import is_definite_create_rejection
 
 
 class RunLockError(RuntimeError):
@@ -74,7 +74,7 @@ class RunLock:
             self._write_intent()
         elif event == "create_failed":
             self._require_intent()
-            if is_definite_rejection(payload) and self._intent["run_id"] is None:
+            if is_definite_create_rejection(payload) and self._intent["run_id"] is None:
                 self._clear_intent()
             else:
                 self._intent.update(status="unknown", error_type=type(payload).__name__)

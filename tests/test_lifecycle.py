@@ -359,3 +359,27 @@ def test_sdk_rejected_terminal_read_keeps_session_unknown():
         assert len(transport.calls) == 1
 
     asyncio.run(exercise())
+
+
+def test_run_capacity_on_finish_is_not_reclassified_as_definite_nonacceptance():
+    from bluesec1_client.errors import RunCapacityExceededError
+    from bluesec1_client.remote.errors import RemoteOutcomeUnknownError
+
+    async def exercise():
+        transport = LifecycleTransport(
+            finish_error=RunCapacityExceededError(
+                "capacity", reason="SUBJECT_ACTIVE_RUN_LIMIT_REACHED"
+            )
+        )
+        client = RemoteBenchmarkClient(transport=transport)
+        async with client:
+            session = await client.start_task()
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.call_tool("finish_investigation", {})
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.abort_task()
+            assert session.terminal_state == "unknown"
+        assert len(transport.calls) == 1
+        assert transport.aborts == []
+
+    asyncio.run(exercise())
