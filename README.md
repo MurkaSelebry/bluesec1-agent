@@ -36,11 +36,21 @@ Start the agent with `--env-file` so gRPC receives the resolver setting from
 the environment as well as the application settings.
 
 ```bash
-uv run --env-file .env bluesec1-agent
+uv run --env-file .env bluesec1-agent --max-tasks 1 --max-steps 60
 ```
 
-The agent creates a run, takes tasks until the queue is empty and prints the
-server-side result of each one. Your score appears on the leaderboard.
+This is a live request: the agent creates a remote run, investigates one task
+and submits its verdict to the server. It prints the authoritative server-side
+task result as JSON. The server owns scoring and leaderboard metrics; the local
+files under `reports/runs/` are a redacted execution trace and result summary for
+debugging, not a replacement for those server metrics. The CLI prints the exact
+artifact directory to stderr when the run finishes.
+
+Runs are bounded to one task by default. Increase the bound deliberately, for
+example with `--max-tasks 3`. Use `--all-tasks` only when you intend to consume
+the full available queue. `--max-tasks` and `--all-tasks` cannot be combined.
+The per-task `--max-steps` limit accepts values from 1 through 100; when omitted,
+the agent uses `BLUESEC_AGENT_MAX_STEPS` from the environment.
 
 You may have only one run in flight. Starting a second one while the first is
 still open is refused until the first finishes.
@@ -118,3 +128,74 @@ uv run pytest
 ```bash
 uv run ruff check .
 ```
+
+## Точка продолжения: 10 октября 2026
+
+Рабочий проект перенесён в репозиторий `MurkaSelebry/bluesec1-agent`.
+Папка `bluesec1-agent-example` оставлена как исходная копия. Это исследовательская
+версия для проверки API, цикла расследования и обвязки, а не подтверждённое по
+качеству решение соревнования.
+
+Перенесены исходники, тесты, `.env`, `.env.example`, lockfile и все отчёты.
+Виртуальное окружение пересоздано через `uv sync --locked`; старые `.git`, `.venv`
+и кеши не копировались. Проверка переноса и список файлов находятся в
+`reports/migration-2026-10-10.json`. Реальные журналы запусков лежат в
+`reports/runs/` и исключены из Git.
+
+### Что уже есть
+
+- Автономный цикл с проверкой JSON-ответа, исправлением некорректного формата,
+  ограничением шагов и задач, повторным использованием уже прочитанных данных.
+- Каталог инструментов берётся из runtime; конкретная схема ответа модели пока
+  описана фиксированными Pydantic-моделями. Это ограничение для будущих изменений API.
+- Журнал `trace.jsonl`, итоговый `result.json`, закрытие run и остановка после ошибки.
+- Из ответов среды извлекается `last_tool_result`, чтобы повторяющийся каталог
+  инструментов не накапливался в контексте модели.
+
+### Что показали тестовые прогоны
+
+| Прогон | Результат |
+| --- | --- |
+| `1715b1f7-1edf-41dc-9c8f-600a04203283` | Вердикт `benign` принят, 6 вызовов среды, 61.325 с. `quality_score`, `efficiency_score`, `total_reward` равны 0. |
+| `272f3753-4ef4-4f90-bbd6-2167827ae2f9` | Прерван до вердикта; в журнале 3 вызова среды. Перед переносом сервер подтвердил закрытие run. Итоговой оценки нет. |
+
+Первый прогон проверил прохождение всего протокола, но не доказал качество
+расследования: эталонный вердикт сервер не сообщил. Агент изучил родителей
+`explorer.exe`, оставив другие прямые связи неисследованными. После этого инструкция
+была уточнена. Во втором прогоне наблюдались длинные ответы LLM и исправление
+некорректного JSON; полноценная проверка улучшенной версии не завершена.
+
+Проверка провайдера сохранена в `reports/api-preflight-2026-10-10.json`:
+15 из 17 модельных ID прошли короткие text/JSON-проверки, две DeepSeek вернули
+HTTP 400. Это проверка совместимости API, а не сравнение качества моделей.
+
+### С чего продолжить исследование
+
+1. Приоритизация связей исходного процесса: исследовать важные входящие и исходящие
+   события до обхода узлов пользователя или хоста с сотнями связей.
+2. Проверка ссылок на доказательства: различать entity/relation IDs и проверять,
+   что итоговый ответ ссылается только на реально полученные объекты и поля.
+3. Измерение обвязки: сохранять расход токенов, задержки и исправления JSON отдельно
+   от числа серверных вызовов. Сейчас сведения о токенах видны в консольных логах.
+4. Несколько завершённых задач для оценки качества и сравнения моделей; два текущих
+   прогона не являются достаточным сравнительным экспериментом.
+
+Локальная проверка без новых запусков на BlueSec:
+
+```bash
+uv sync --locked
+uv run pytest
+uv run ruff check .
+```
+
+Когда потребуется следующий реальный эксперимент:
+
+```bash
+uv run --env-file .env bluesec1-agent --max-tasks 1 --max-steps 60
+```
+
+Эта команда создаёт новый run и позволяет агенту самостоятельно отправить вердикт.
+
+План следующей итерации: [команда агентов с goals и независимым ревьювером](docs/superpowers/plans/2026-10-10-goal-team.md).
+В нём зафиксированы роли, границы изменений, проверки и ограниченная серия экспериментов.
+Для запуска команды в отдельных задачах подготовлены [готовые промпты и порядок запуска](docs/superpowers/prompts/2026-10-10-goal-team/README.md).

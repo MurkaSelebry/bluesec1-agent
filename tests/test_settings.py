@@ -35,9 +35,10 @@ def test_env_example_contains_complete_runnable_configuration() -> None:
     assert settings.scenario_runtime_endpoint == "bluesec.team:443"
     assert settings.scenario_runtime_verify_tls is True
     assert settings.scenario_runtime_arena is None
-    assert settings.llm_base_url == "https://provider.example/v1"
-    assert settings.llm_api_key.get_secret_value() == "replace-with-your-key"
-    assert settings.llm_default_model == "provider/model-name"
+    assert settings.llm_base_url == "https://fluxapi.shop/v1"
+    assert settings.llm_api_key.get_secret_value()
+    assert settings.llm_api_key.get_secret_value() != "replace-with-your-key"
+    assert settings.llm_default_model == "gpt-6-luna"
     assert settings.agent_max_steps == 100
 
 

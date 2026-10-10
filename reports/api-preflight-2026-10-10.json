@@ -1,0 +1,811 @@
+{
+  "completed_at_utc": "2026-10-10T09:27:05.233414+00:00",
+  "scope": "Проверка подключения, ключей, всех 17 моделей и конфигурации. Без запуска расследований, написания плана или изменения логики агента.",
+  "base_url": "https://fluxapi.shop/v1",
+  "summary": {
+    "models_requested": 17,
+    "models_passed_chat_and_schema": 15,
+    "llm_key_accepted": true,
+    "runtime_auth_result": "С неверным ключом UNAUTHENTICATED; с ключом пользователя NOT_FOUND/RUN_NOT_FOUND для случайного несуществующего run_id. Это сильное свидетельство принятия ключа, но не проверка права начать run или доступности арены.",
+    "runs_created": 0,
+    "tasks_leased": 0,
+    "default_model": "gpt-6-luna"
+  },
+  "models": [
+    {
+      "model": "gpt-5.5",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "chat_ok": false,
+      "next_step_schema_ok": false
+    },
+    {
+      "model": "deepseek-v4-pro",
+      "chat_ok": false,
+      "next_step_schema_ok": false
+    },
+    {
+      "model": "claude-opus-4.6",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "claude-opus-4.7",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "claude-opus-4.8",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "claude-opus-5",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "claude-sonnet-4.6",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "claude-sonnet-5",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-6-astra",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-6-luna",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-6-sol",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "claude-opus-5-5",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "chat_ok": true,
+      "next_step_schema_ok": true
+    }
+  ],
+  "llm_auth_checks": [
+    {
+      "check": "models_auth_valid",
+      "http_status": 200,
+      "latency_s": 0.5,
+      "model_ids": [
+        "gpt-5.5",
+        "gpt-5.6-luna",
+        "gpt-5.6-terra",
+        "gpt-5.6-sol",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro",
+        "claude-opus-4.6",
+        "claude-opus-4.6[1m]",
+        "claude-opus-4.7",
+        "claude-opus-4.7[1m]",
+        "claude-opus-4.8",
+        "claude-opus-4.8[1m]",
+        "claude-opus-5",
+        "claude-opus-5[1m]",
+        "claude-sonnet-4.6",
+        "claude-sonnet-4.6[1m]",
+        "claude-sonnet-5",
+        "claude-sonnet-5[1m]",
+        "gpt-6-astra",
+        "gpt-6-luna",
+        "gpt-6-sol",
+        "claude-opus-5-5",
+        "claude-opus-5-5[1m]",
+        "gpt-6.1-sol"
+      ]
+    },
+    {
+      "check": "models_auth_invalid",
+      "http_status": 401,
+      "latency_s": 0.18,
+      "error": "{'message': 'FluxAPI error 2001', 'type': 'api_error', 'param': None, 'code': '2001'}"
+    }
+  ],
+  "model_checks": [
+    {
+      "model": "gpt-5.6-terra",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-5.6-terra",
+      "usage": {
+        "prompt_tokens": 19,
+        "completion_tokens": 10,
+        "total_tokens": 29
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.64
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-5.6-terra",
+      "usage": {
+        "prompt_tokens": 2118,
+        "completion_tokens": 87,
+        "total_tokens": 2205,
+        "completion_tokens_details": {
+          "reasoning_tokens": 9
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 278,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.11
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-5.6-luna",
+      "usage": {
+        "prompt_tokens": 22,
+        "completion_tokens": 13,
+        "total_tokens": 35
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 4.19
+    },
+    {
+      "model": "gpt-5.5",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-5.5",
+      "usage": {
+        "prompt_tokens": 23,
+        "completion_tokens": 14,
+        "total_tokens": 37
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 5.02
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-5.6-sol",
+      "usage": {
+        "prompt_tokens": 22,
+        "completion_tokens": 13,
+        "total_tokens": 35
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.59
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-5.6-luna",
+      "usage": {
+        "prompt_tokens": 2115,
+        "completion_tokens": 89,
+        "total_tokens": 2204,
+        "completion_tokens_details": {
+          "reasoning_tokens": 12
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 288,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 1.8
+    },
+    {
+      "model": "gpt-5.5",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-5.5",
+      "usage": {
+        "prompt_tokens": 2114,
+        "completion_tokens": 90,
+        "total_tokens": 2204,
+        "completion_tokens_details": {
+          "reasoning_tokens": 16
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 288,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.32
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-5.6-sol",
+      "usage": {
+        "prompt_tokens": 2117,
+        "completion_tokens": 91,
+        "total_tokens": 2208,
+        "completion_tokens_details": {
+          "reasoning_tokens": 15
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 282,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 3.54
+    },
+    {
+      "model": "claude-opus-4.6",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-opus-4.6",
+      "usage": {
+        "prompt_tokens": 116,
+        "completion_tokens": 12,
+        "total_tokens": 128
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.56
+    },
+    {
+      "model": "claude-opus-4.6",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-opus-4.6",
+      "usage": {
+        "prompt_tokens": 2207,
+        "completion_tokens": 85,
+        "total_tokens": 2292,
+        "completion_tokens_details": {
+          "reasoning_tokens": 11
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 270,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 1.83
+    },
+    {
+      "model": "claude-opus-4.7",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-opus-4.7",
+      "usage": {
+        "prompt_tokens": 117,
+        "completion_tokens": 13,
+        "total_tokens": 130
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.49
+    },
+    {
+      "model": "claude-opus-4.7",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-opus-4.7",
+      "usage": {
+        "prompt_tokens": 2206,
+        "completion_tokens": 94,
+        "total_tokens": 2300,
+        "completion_tokens_details": {
+          "reasoning_tokens": 19
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 281,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 3.35
+    },
+    {
+      "model": "claude-opus-4.8",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-opus-4.8",
+      "usage": {
+        "prompt_tokens": 119,
+        "completion_tokens": 15,
+        "total_tokens": 134
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 12.44
+    },
+    {
+      "model": "deepseek-v4-pro",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 400,
+      "ok": false,
+      "error": "{'message': 'FluxAPI error 2000', 'type': 'api_error', 'param': None, 'code': '2000'}",
+      "latency_s": 34.77
+    },
+    {
+      "model": "deepseek-v4-pro",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 400,
+      "ok": false,
+      "error": "{'message': 'FluxAPI error 2000', 'type': 'api_error', 'param': None, 'code': '2000'}",
+      "latency_s": 0.67
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 400,
+      "ok": false,
+      "error": "{'message': 'FluxAPI error 2000', 'type': 'api_error', 'param': None, 'code': '2000'}",
+      "latency_s": 36.9
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 400,
+      "ok": false,
+      "error": "{'message': 'FluxAPI error 2000', 'type': 'api_error', 'param': None, 'code': '2000'}",
+      "latency_s": 0.47
+    },
+    {
+      "model": "claude-opus-5",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-opus-5",
+      "usage": {
+        "prompt_tokens": 111,
+        "completion_tokens": 11,
+        "total_tokens": 122
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.17
+    },
+    {
+      "model": "claude-sonnet-4.6",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-sonnet-4.6",
+      "usage": {
+        "prompt_tokens": 23,
+        "completion_tokens": 14,
+        "total_tokens": 37
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.45
+    },
+    {
+      "model": "claude-opus-5",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-opus-5",
+      "usage": {
+        "prompt_tokens": 2202,
+        "completion_tokens": 90,
+        "total_tokens": 2292,
+        "completion_tokens_details": {
+          "reasoning_tokens": 15
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 282,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.02
+    },
+    {
+      "model": "claude-sonnet-5",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-sonnet-5",
+      "usage": {
+        "prompt_tokens": 22,
+        "completion_tokens": 13,
+        "total_tokens": 35
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.28
+    },
+    {
+      "model": "claude-opus-4.8",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-opus-4.8",
+      "usage": {
+        "prompt_tokens": 2206,
+        "completion_tokens": 90,
+        "total_tokens": 2296,
+        "completion_tokens_details": {
+          "reasoning_tokens": 14
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 293,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 17.91
+    },
+    {
+      "model": "claude-sonnet-4.6",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-sonnet-4.6",
+      "usage": {
+        "prompt_tokens": 2114,
+        "completion_tokens": 82,
+        "total_tokens": 2196,
+        "prompt_tokens_details": {
+          "cached_tokens": 1792
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 9
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 278,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.76
+    },
+    {
+      "model": "gpt-6-astra",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-6-astra",
+      "usage": {
+        "prompt_tokens": 22,
+        "completion_tokens": 13,
+        "total_tokens": 35
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 9.46
+    },
+    {
+      "model": "gpt-6-astra",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-6-astra",
+      "usage": {
+        "prompt_tokens": 2113,
+        "completion_tokens": 70,
+        "total_tokens": 2183
+      },
+      "finish_reason": "stop",
+      "content_length": 285,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 1.63
+    },
+    {
+      "model": "gpt-6-sol",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-6-sol",
+      "usage": {
+        "prompt_tokens": 23,
+        "completion_tokens": 14,
+        "total_tokens": 37
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.6
+    },
+    {
+      "model": "gpt-6-sol",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-6-sol",
+      "usage": {
+        "prompt_tokens": 2114,
+        "completion_tokens": 86,
+        "total_tokens": 2200,
+        "completion_tokens_details": {
+          "reasoning_tokens": 12
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 282,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 1.88
+    },
+    {
+      "model": "claude-opus-5-5",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "claude-opus-5-5",
+      "usage": {
+        "prompt_tokens": 177,
+        "completion_tokens": 11,
+        "total_tokens": 188
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.16
+    },
+    {
+      "model": "claude-opus-5-5",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-opus-5-5",
+      "usage": {
+        "prompt_tokens": 2270,
+        "completion_tokens": 95,
+        "total_tokens": 2365,
+        "prompt_tokens_details": {
+          "cached_tokens": 1792
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 15
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 308,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.43
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-6.1-sol",
+      "usage": {
+        "prompt_tokens": 22,
+        "completion_tokens": 13,
+        "total_tokens": 35
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 1.24
+    },
+    {
+      "model": "claude-sonnet-5",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "claude-sonnet-5",
+      "usage": {
+        "prompt_tokens": 2115,
+        "completion_tokens": 99,
+        "total_tokens": 2214,
+        "completion_tokens_details": {
+          "reasoning_tokens": 22
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 300,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 21.7
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-6.1-sol",
+      "usage": {
+        "prompt_tokens": 2115,
+        "completion_tokens": 85,
+        "total_tokens": 2200,
+        "completion_tokens_details": {
+          "reasoning_tokens": 10
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 280,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.2
+    },
+    {
+      "model": "gpt-6-luna",
+      "check": "chat_completion",
+      "requested_max_completion_tokens": 512,
+      "http_status": 200,
+      "returned_model": "gpt-6-luna",
+      "usage": {
+        "prompt_tokens": 21,
+        "completion_tokens": 12,
+        "total_tokens": 33
+      },
+      "finish_reason": "stop",
+      "content_length": 18,
+      "ok": true,
+      "latency_s": 38.93
+    },
+    {
+      "model": "gpt-6-luna",
+      "check": "next_step_schema",
+      "requested_max_completion_tokens": 2048,
+      "http_status": 200,
+      "returned_model": "gpt-6-luna",
+      "usage": {
+        "prompt_tokens": 2117,
+        "completion_tokens": 92,
+        "total_tokens": 2209,
+        "prompt_tokens_details": {
+          "cached_tokens": 1792
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 13
+        }
+      },
+      "finish_reason": "stop",
+      "content_length": 303,
+      "ok": true,
+      "schema_valid": true,
+      "latency_s": 2.17
+    }
+  ],
+  "deepseek_diagnostics": [
+    {
+      "model": "deepseek-v4-flash",
+      "check": "chat_with_max_tokens",
+      "max_tokens": 512,
+      "http_status": 400,
+      "ok": false,
+      "error": "{'message': 'FluxAPI error 2000', 'type': 'api_error', 'param': None, 'code': '2000'}",
+      "latency_s": 15.77
+    },
+    {
+      "model": "deepseek-v4-pro",
+      "check": "chat_with_max_tokens",
+      "max_tokens": 512,
+      "http_status": 400,
+      "ok": false,
+      "error": "{'message': 'FluxAPI error 2000', 'type': 'api_error', 'param': None, 'code': '2000'}",
+      "latency_s": 16.01
+    }
+  ],
+  "runtime_auth_checks": [
+    {
+      "check": "runtime_auth_invalid",
+      "rpc": "LeaseTask",
+      "nonexistent_run": true,
+      "grpc_status": "UNAUTHENTICATED",
+      "detail": "authentication failed",
+      "latency_s": 1.1
+    },
+    {
+      "check": "runtime_auth_candidate",
+      "rpc": "LeaseTask",
+      "nonexistent_run": true,
+      "grpc_status": "NOT_FOUND",
+      "detail": "runtime request failed",
+      "reason": "RUN_NOT_FOUND",
+      "latency_s": 0.22
+    }
+  ],
+  "existing_sdk_client_check": {
+    "check": "existing_sdk_client_next_step",
+    "model": "gpt-6-luna",
+    "grpc_dns_resolver": "native",
+    "max_completion_tokens": 16384,
+    "max_retries": 1,
+    "ok": true,
+    "tool": "get_entity",
+    "latency_s": 22.31
+  },
+  "local_verification": {
+    "pytest": "20 passed",
+    "ruff": "passed",
+    "git_diff_check": "passed",
+    "env_example_parse": "passed",
+    "test_keys_preserved": true,
+    "existing_dotenv_changed": false
+  },
+  "findings": [
+    "BASE_API и LLM_KEY не читаются Settings. Значения перенесены в LLM_BASE_URL и LLM_API_KEY.",
+    "Две DeepSeek-модели видны в /models, но вернули HTTP 400 / FluxAPI error 2000 и для обычного запроса, и для NextStep JSON, и при замене max_completion_tokens на max_tokens. Ответ не раскрывает первопричину.",
+    "15 моделей прошли одношаговую проверку текста и полной схемы NextStep; это не оценка качества расследований и не независимое подтверждение upstream-модели за шлюзом.",
+    "gpt-6-luna дополнительно проверена через существующий OpenAIStructuredStepClient с настройками .env.example и uv --env-file.",
+    "Ручной проект является учебным интерфейсом с LLM-наставником; он также содержит базовый автономный агент. Локальный репозиторий уже является официальным референсным агентом.",
+    "BlueSec использует TLS gRPC и Bearer metadata. Runtime сообщает доступные инструменты и схемы в observation.available_tools. Для последующей автоматизации важны жизненный цикл run/task, идемпотентность и серверный terminal result."
+  ],
+  "sources": [
+    {
+      "title": "BlueSec Manual Lab",
+      "url": "https://github.com/mitrofanov-m/bluesec1-101-manual-run"
+    },
+    {
+      "title": "Официальный референсный агент",
+      "url": "https://github.com/False-Positive-Community/bluesec1-agent"
+    },
+    {
+      "title": "gRPC контракт BlueSec",
+      "url": "https://github.com/False-Positive-Community/bluesec1-agent/blob/main/proto/investigation/runtime/v1/runtime.proto"
+    },
+    {
+      "title": "Официальный transport: auth, retry, ошибки",
+      "url": "https://github.com/False-Positive-Community/bluesec1-agent/blob/main/src/bluesec1_client/remote/transport/grpc.py"
+    },
+    {
+      "title": "FluxAPI",
+      "url": "https://fluxapi.shop/"
+    }
+  ]
+}
