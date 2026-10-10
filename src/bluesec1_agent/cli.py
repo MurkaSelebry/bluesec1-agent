@@ -299,7 +299,7 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                             "retry_policy": RetryPolicy(max_attempts=2 if submission_only else 1),
                             "deadlines": DeadlinePolicy(
                                 create_run=15,
-                                lease_task=20 if submission_only else 8,
+                                lease_task=20 if submission_only or quality_submit else 8,
                                 call_tool=15 if submission_only else 8,
                                 abort_task=5,
                                 close_run=15,

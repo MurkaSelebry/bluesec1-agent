@@ -40,7 +40,10 @@ Keep reasoning concise so the structured decision fits in the output budget.
 def allocate_task_seconds(
     remaining_seconds: float, remaining_tasks: int, *, cleanup_seconds: float, lease_seconds: float
 ) -> float:
-    """Reserve cleanup once and a worst-case lease for every remaining task."""
+    """Reserve cleanup once and an expected lease allowance for remaining tasks.
+
+    The actual lease may take longer; investigation is clamped again after it.
+    """
     seconds = (remaining_seconds - cleanup_seconds) / remaining_tasks - lease_seconds
     if not math.isfinite(seconds) or seconds < 12:
         raise BudgetExceededError("Insufficient run time for remaining tasks and cleanup.")
@@ -170,6 +173,10 @@ class QualitySubmissionAgent(SimpleSGRAgent):
         ]
 
     async def _investigate(self, session: RemoteBenchmarkSession, budget: Budget) -> TaskResult:
+        global_available = max(
+            0.0, self.run_budget.remaining_seconds() - self.cleanup_reserve_seconds
+        )
+        budget = budget.with_reserve(max(0.0, budget.remaining_seconds() - global_available))
         specs = self._tool_specs(session.task.observation)
         schemas = check_catalog(specs)
         if "finish_investigation" not in schemas:

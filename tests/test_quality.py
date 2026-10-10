@@ -6,7 +6,7 @@ import pytest
 from test_agent_v2 import Client, ScriptedLLM, Session, benign
 
 from bluesec1_agent import cli
-from bluesec1_agent.budget import BudgetExceededError
+from bluesec1_agent.budget import Budget, BudgetExceededError
 from bluesec1_agent.evidence import EvidenceStore
 from bluesec1_client.remote.errors import RemoteOutcomeUnknownError
 
@@ -185,3 +185,55 @@ def test_quality_consumes_forty_tasks_with_one_terminal_call_each():
     result = asyncio.run(quality(ScriptedLLM([benign()] * 40)).run(queue))
     assert result.successful_tasks == 40
     assert all(sum(n == "finish_investigation" for n, _ in s.calls) == 1 for s in queue.sessions)
+
+
+def test_quality_lease_has_twenty_seconds_without_extending_terminal_deadline(
+    monkeypatch, tmp_path
+):
+    from test_cli import _settings
+
+    captured = {}
+
+    class LLM:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+    def client(**kwargs):
+        captured.update(kwargs)
+        raise RuntimeError("offline constructor stop")
+
+    monkeypatch.setattr(cli, "_load_settings", _settings)
+    monkeypatch.setattr(cli.truststore, "inject_into_ssl", lambda: None)
+    monkeypatch.setattr(cli, "OpenAIStructuredStepClient", LLM)
+    monkeypatch.setattr(cli, "RemoteBenchmarkClient", client)
+    argv = [
+        "--quality-submit",
+        "--quality-deadline",
+        "2099-01-01T00:00:00Z",
+        "--runtime-state-dir",
+        str(tmp_path / "state"),
+        "--output-dir",
+        str(tmp_path / "runs"),
+    ]
+    with pytest.raises(RuntimeError, match="offline constructor stop"):
+        asyncio.run(cli.run(cli.build_parser().parse_args(argv)))
+    assert captured["deadlines"].lease_task == 20
+    assert captured["deadlines"].call_tool == 8
+    assert captured["retry_policy"].max_attempts == 1
+
+
+def test_slow_lease_cannot_borrow_global_cleanup_reserve():
+    llm = ScriptedLLM([benign()])
+    agent = quality(llm)
+    agent.run_budget = Budget(40)
+    session = Session()
+    result = asyncio.run(agent._investigate(session, Budget(60)))
+    assert result.completion_reason == "terminated"
+    assert llm.messages == []
+    assert "incomplete" in session.calls[-1][1]["submission"]["reasoning"]
