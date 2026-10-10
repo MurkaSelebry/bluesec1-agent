@@ -120,7 +120,14 @@ def test_reserved_final_steps_repair_rejected_citation_without_more_navigation()
 
 
 def test_repeated_cached_reads_recover_to_unseen_relation_and_keep_action_history():
-    session = Session()
+    class SelfLoopSession(Session):
+        async def call_tool(self, tool_name, arguments):
+            response = await super().call_tool(tool_name, arguments)
+            if tool_name == "get_relation":
+                response.info["tool_result"]["source_id"] = "p1"
+            return response
+
+    session = SelfLoopSession()
     read = step("get_entity", entity_id="p1", reasoning="Read trigger")
     llm = ScriptedLLM([read, read, read, read, benign()])
     result = asyncio.run(SimpleSGRAgent(llm, strategy="v2", max_steps=8).run(Client(session)))

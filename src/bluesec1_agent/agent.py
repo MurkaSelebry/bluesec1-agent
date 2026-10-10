@@ -44,6 +44,8 @@ Investigation rules:
 - Do not repeat an identical unhelpful or failed call.
 - Use only entity_id values actually returned by the alert or by a tool.
 - Submit only response artifacts supported by evidence. Do not invent entity ids.
+- Null or absent properties mean unknown, never false: signed=null does not mean
+  unsigned. A working directory (cwd) does not establish the executable's image_path.
 - Keep current_state evidence-focused and the remaining plan short.
 - Set task_completed=true exactly when selecting finish_investigation.
 - Finish before the investigation step budget is exhausted.
@@ -63,6 +65,11 @@ Use an evidence-driven investigation:
    of the trigger remains unexamined and there is budget to inspect it.
 3. For a malicious verdict, identify the response scope: affected hosts, compromised
    identities, malicious files, persistence and network indicators as actually observed.
+   Establishing malicious activity does not establish complete response scope. While
+   investigation time remains, inspect relevant child actions and service, persistence,
+   network and identity leads before claiming that no further response targets are
+   supported. Follow a bounded set of direct and non-broad neighbor links; do not
+   enumerate unrelated host/user activity or infer entities from paths/account names.
    Match every IR artifact kind to its entity and justified response action. An
    observed process is not automatically a file_to_delete or a host_to_isolate.
 4. For a benign verdict, cite concrete entity property_fields or relation evidence
@@ -281,6 +288,7 @@ class SimpleSGRAgent:
         previous_reads: dict[str, dict[str, Any]] = {}
         action_history: list[dict[str, Any]] = []
         no_progress_streak = 0
+        scope_deferrals = 0
         # Reserve two decision opportunities plus a terminal RPC. Both strategies
         # share deadline safety; only v2 changes navigation/provenance policy.
         finalization_reserve = min(255.0, self.task_timeout_seconds * 0.4)
@@ -429,42 +437,82 @@ class SimpleSGRAgent:
                 finalizing = True
             proposed_step = step
             proposed_tool = step.function.tool
-            if self.strategy == "v2" and no_progress_streak >= 2 and not finalizing:
+            redirect_reason = None
+            if self.strategy == "v2" and not finalizing:
                 proposed_arguments = step.function.model_dump(
                     mode="json", by_alias=True, exclude={"tool", "reasoning"}, exclude_none=True
                 )
+                redirect_lead = None
+                if (
+                    proposed_tool == "finish_investigation"
+                    and scope_deferrals < 6
+                    and not validate_arguments(
+                        proposed_arguments, argument_schemas["finish_investigation"]
+                    )
+                    and not validate_submission(step.function.submission, store)
+                ):
+                    # A classification can be supported before its response scope
+                    # is checked. Only novel, focused reads may defer that verdict.
+                    redirect_lead = next(
+                        (
+                            lead
+                            for lead in leads
+                            if lead.priority <= 25
+                            and not any(
+                                item["arguments"].get(f"{lead.kind}_id") == lead.object_id
+                                for item in action_history
+                            )
+                            and not (
+                                lead.kind == "entity"
+                                and any(
+                                    version.fields.get("type")
+                                    in {"host", "windows_user", "linux_user"}
+                                    for version in store.history(lead.object_id, "entity")
+                                )
+                            )
+                        ),
+                        None,
+                    )
+                    if redirect_lead is not None:
+                        scope_deferrals += 1
+                        redirect_reason = "response_scope_check"
                 repeated = any(
                     item["tool"] == proposed_tool and item["arguments"] == proposed_arguments
                     for item in action_history
                 )
-                if repeated and proposed_tool != "finish_investigation":
-                    for lead in leads:
-                        recovery_tool = "get_entity" if lead.kind == "entity" else "get_relation"
-                        if recovery_tool not in available_tools:
-                            continue
-                        request_type = (
-                            GetEntityRequest if lead.kind == "entity" else GetRelationRequest
-                        )
-                        request = request_type.model_validate(
-                            {
-                                "tool": recovery_tool,
-                                f"{lead.kind}_id": lead.object_id,
-                                "reasoning": "Recover from repeated no-progress actions: "
-                                + lead.reason,
-                            }
-                        )
-                        step = step.model_copy(update={"function": request})
-                        self._record(
-                            "action_redirected",
-                            task_id=session.task_id,
-                            step=step_index,
-                            reason="repeated_no_progress",
-                            proposed_tool=proposed_tool,
-                            proposed_arguments=proposed_arguments,
-                            tool_name=recovery_tool,
-                            object_id=lead.object_id,
-                        )
-                        break
+                if no_progress_streak >= 2 and repeated and proposed_tool != "finish_investigation":
+                    redirect_lead = next(iter(leads), None)
+                    redirect_reason = "repeated_no_progress"
+                if redirect_lead is not None:
+                    recovery_tool = (
+                        "get_entity" if redirect_lead.kind == "entity" else "get_relation"
+                    )
+                    request_type = (
+                        GetEntityRequest if redirect_lead.kind == "entity" else GetRelationRequest
+                    )
+                    request = request_type.model_validate(
+                        {
+                            "tool": recovery_tool,
+                            f"{redirect_lead.kind}_id": redirect_lead.object_id,
+                            "reasoning": f"{redirect_reason}: {redirect_lead.reason}",
+                        }
+                    )
+                    step = step.model_copy(update={"function": request, "task_completed": False})
+                    self._record(
+                        "finish_deferred"
+                        if proposed_tool == "finish_investigation"
+                        else "action_redirected",
+                        task_id=session.task_id,
+                        step=step_index,
+                        reason=redirect_reason,
+                        proposed_tool=proposed_tool,
+                        proposed_arguments=proposed_arguments,
+                        tool_name=recovery_tool,
+                        object_id=redirect_lead.object_id,
+                        proposed_decision=proposed_step.model_dump(mode="json", by_alias=True),
+                        executed_decision=step.model_dump(mode="json", by_alias=True),
+                        scope_deferrals=scope_deferrals,
+                    )
             tool_name = step.function.tool
             arguments = step.function.model_dump(
                 mode="json",
@@ -669,7 +717,7 @@ class SimpleSGRAgent:
                 feedback["executed_action"] = {
                     "tool": tool_name,
                     "arguments": arguments,
-                    "reason": "Repeated no-progress proposal redirected to an unread lead.",
+                    "reason": redirect_reason,
                 }
             action_history.append(
                 {

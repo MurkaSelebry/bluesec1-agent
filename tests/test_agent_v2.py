@@ -166,7 +166,7 @@ def test_ambiguous_terminal_call_is_never_followed_by_abort():
     session = AmbiguousSession()
     llm = ScriptedLLM([step("get_entity", entity_id="p1", reasoning="Inspect"), benign()])
     with pytest.raises(RemoteOutcomeUnknownError):
-        asyncio.run(SimpleSGRAgent(llm, strategy="v2").run(Client(session)))
+        asyncio.run(SimpleSGRAgent(llm, strategy="v2", max_steps=2).run(Client(session)))
     assert session.abort_count == 0
 
 
@@ -200,6 +200,7 @@ def test_terminal_timeout_preserves_unknown_outcome_for_cli():
     agent = SimpleSGRAgent(
         ScriptedLLM([step("get_entity", entity_id="p1", reasoning="Inspect"), benign()]),
         strategy="v2",
+        max_steps=2,
         task_timeout_seconds=0.02,
         recorder=Sink(),
     )
