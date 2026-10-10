@@ -13,6 +13,13 @@ from bluesec1_agent.agent import AgentRunResult
 from bluesec1_client.remote.client import CleanupOutcome
 
 
+@pytest.fixture(autouse=True)
+def isolated_runtime_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        cli, "_runtime_state_directory", lambda repository: tmp_path / "runtime-state"
+    )
+
+
 def _settings() -> SimpleNamespace:
     return SimpleNamespace(
         scenario_runtime_endpoint="runtime.example:443",
