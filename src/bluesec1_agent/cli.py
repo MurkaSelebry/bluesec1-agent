@@ -162,6 +162,7 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
         "llm_timeout_seconds": settings.llm_timeout_seconds,
         "max_completion_tokens": settings.llm_max_completion_tokens,
         "runtime_endpoint": args.endpoint or settings.scenario_runtime_endpoint,
+        "arena": args.arena or settings.scenario_runtime_arena,
         "llm_base_url": settings.llm_base_url,
         "verify_tls": verify_tls,
     }
