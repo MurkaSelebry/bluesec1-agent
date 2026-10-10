@@ -113,7 +113,7 @@ class RemoteBenchmarkSession(BaseTaskSession):
             RemoteClientStateError: If the parent client has closed.
             TaskAlreadyFinishedError: If this session is already terminal.
             RemoteRequestError: If local tool inputs are invalid.
-            RemoteProtocolError: If a fake or custom transport returns mismatched identifiers.
+            RemoteOutcomeUnknownError: If a terminal or protocol response is indeterminate.
 
         """
         async with self._lock:
@@ -131,9 +131,13 @@ class RemoteBenchmarkSession(BaseTaskSession):
                 )
             except ValueError:
                 raise RemoteRequestError("The tool call contains invalid input.") from None
+            may_be_terminal = tool_name == "finish_investigation"
             try:
                 outcome = await self._transport.call_tool(command)
                 result = outcome.result
+                may_be_terminal = may_be_terminal or bool(
+                    result.terminated or result.truncated or result.task_result is not None
+                )
                 if (
                     outcome.run_id != self._run_id
                     or outcome.call_id != command.call_id
@@ -160,11 +164,16 @@ class RemoteBenchmarkSession(BaseTaskSession):
                     raise RemoteProtocolError("The transport omitted the terminal task result.")
                 return result
             except BaseException as exc:
-                if tool_name == "finish_investigation" and not is_definite_rejection(exc):
+                # The SDK may reject a malformed terminal response before exposing
+                # its flags. A protocol failure cannot prove the task is still active.
+                if (may_be_terminal or isinstance(exc, RemoteProtocolError)) and not (
+                    is_definite_rejection(exc)
+                ):
                     self._unknown_terminal_id = command.call_id
                     if isinstance(exc, Exception):
                         raise RemoteOutcomeUnknownError(
-                            "The finish response was lost or invalid; its outcome is unknown.",
+                            "The tool response was lost or invalid; "
+                            "its terminal outcome is unknown.",
                             request_id=command.call_id,
                         ) from exc
                 raise

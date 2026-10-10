@@ -282,3 +282,80 @@ def test_confirmed_server_close_survives_owned_channel_error(monkeypatch):
         assert len(transport.closes) == 1
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("terminal_flag", ["terminated", "truncated"])
+def test_terminal_read_without_authoritative_result_blocks_new_mutations(terminal_flag):
+    from bluesec1_client.remote.errors import RemoteOutcomeUnknownError
+
+    class MalformedReadTransport(LifecycleTransport):
+        async def call_tool(self, command):
+            self.calls.append(command)
+            return ToolCallOutcome(
+                run_id="run-1",
+                call_id=command.call_id,
+                result=ToolCallResult(
+                    task_id="task-1", tool_name=command.tool_name, **{terminal_flag: True}
+                ),
+            )
+
+    async def exercise():
+        transport = MalformedReadTransport()
+        client = RemoteBenchmarkClient(transport=transport)
+        async with client:
+            session = await client.start_task()
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.call_tool("get_entity", {"entity_id": "entity-1"})
+            assert session.terminal_state == "unknown"
+            assert session.terminal_result is None
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.abort_task()
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.call_tool("finish_investigation", {})
+        assert len(transport.calls) == 1
+        assert transport.aborts == []
+
+    asyncio.run(exercise())
+
+
+def test_sdk_rejected_terminal_read_keeps_session_unknown():
+    from types import SimpleNamespace
+
+    from bluesec1_client.proto.investigation.runtime.v1 import runtime_pb2
+    from bluesec1_client.remote.errors import RemoteOutcomeUnknownError
+    from bluesec1_client.remote.transport.grpc import GrpcRemoteTransport
+
+    async def malformed_read(request, **kwargs):
+        return runtime_pb2.ToolCallResponse(
+            run_id=request.run_id,
+            task_id=request.task_id,
+            call_id=request.call_id,
+            tool_name=request.tool_name,
+            truncated=True,
+        )
+
+    async def exercise():
+        grpc_transport = GrpcRemoteTransport(
+            endpoint="unused.invalid",
+            token="synthetic",
+            stub=SimpleNamespace(CallTool=malformed_read),
+        )
+
+        class Transport(LifecycleTransport):
+            async def call_tool(self, command):
+                self.calls.append(command)
+                return await grpc_transport.call_tool(command)
+
+        transport = Transport()
+        client = RemoteBenchmarkClient(transport=transport)
+        async with client:
+            session = await client.start_task()
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.call_tool("get_entity", {"entity_id": "entity-1"})
+            assert session.terminal_state == "unknown"
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.abort_task()
+        assert transport.aborts == []
+        assert len(transport.calls) == 1
+
+    asyncio.run(exercise())

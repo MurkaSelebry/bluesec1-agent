@@ -65,7 +65,19 @@ def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
             value = value.replace(secret, "[REDACTED]")
         return value
     if isinstance(value, dict):
-        return {redact(str(key), secrets): redact(item, secrets) for key, item in value.items()}
+        entries = [(str(key), redact(str(key), secrets), item) for key, item in value.items()]
+        original_keys = {original for original, _, _ in entries}
+        reserved_keys = {safe for _, safe, _ in entries}
+        result: dict[str, Any] = {}
+        for original, safe, item in entries:
+            key = safe
+            if key in result or (original != safe and safe in original_keys):
+                suffix = 2
+                while f"{safe}#{suffix}" in reserved_keys or f"{safe}#{suffix}" in result:
+                    suffix += 1
+                key = f"{safe}#{suffix}"
+            result[key] = redact(item, secrets)
+        return result
     if isinstance(value, (list, tuple)):
         return [redact(item, secrets) for item in value]
     return value
@@ -172,7 +184,7 @@ def build_run_metadata(
         ):
             return "[REDACTED]"
         if isinstance(value, dict):
-            return {redact(str(k), secrets): clean(v, str(k)) for k, v in value.items()}
+            return redact({str(k): clean(v, str(k)) for k, v in value.items()}, secrets)
         if isinstance(value, (list, tuple)):
             return [clean(v) for v in value]
         if isinstance(value, Path):

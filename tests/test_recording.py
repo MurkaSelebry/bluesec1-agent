@@ -158,3 +158,51 @@ def test_run_metadata_hashes_source_and_sanitizes_configuration(tmp_path):
     assert ".env" not in metadata["source_hashes"]
     assert metadata["dirty"] is True
     assert metadata["commit"] is None
+
+
+def test_redacted_key_collisions_preserve_values_and_nested_data():
+    from bluesec1_agent.recording import redact
+
+    original = {
+        "KEY_A": {"KEY_A": "first", "KEY_B": "second"},
+        "KEY_B": "third",
+        "[REDACTED]": "existing key",
+        "[REDACTED]#2": "existing suffix",
+    }
+    result = redact(original, ("KEY_A", "KEY_B"))
+    assert len(result) == 4
+    assert list(result.values()) == [
+        {"[REDACTED]": "first", "[REDACTED]#2": "second"},
+        "third",
+        "existing key",
+        "existing suffix",
+    ]
+    assert result == redact(original, ("KEY_A", "KEY_B"))
+    assert "KEY_A" not in json.dumps(result)
+    assert "KEY_B" not in json.dumps(result)
+    assert result["[REDACTED]"] == "existing key"
+    assert result["[REDACTED]#2"] == "existing suffix"
+
+
+def test_recorder_preserves_colliding_keys_in_trace_and_result(tmp_path):
+    recorder = RunRecorder(tmp_path, secrets=("KEY_A", "KEY_B"))
+    payload = {"KEY_A": "first", "KEY_B": "second"}
+    recorder.record("collision", fields=payload)
+    recorder.write_result({"fields": payload})
+    trace_fields = read_trace(recorder.directory)[0]["payload"]["fields"]
+    result_fields = json.loads((recorder.directory / "result.json").read_text())["fields"]
+    assert list(trace_fields.values()) == ["first", "second"]
+    assert trace_fields == result_fields
+
+
+def test_metadata_configuration_preserves_redacted_key_collisions(tmp_path):
+    from bluesec1_agent.recording import build_run_metadata
+
+    metadata = build_run_metadata(
+        tmp_path,
+        configuration={"nested": {"KEY_A": "first", "KEY_B": "second"}},
+        prompt="",
+        schema={},
+        secrets=("KEY_A", "KEY_B"),
+    )
+    assert list(metadata["configuration"]["nested"].values()) == ["first", "second"]
