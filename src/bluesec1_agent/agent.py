@@ -4,6 +4,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from bluesec1_agent.catalog import check_catalog, validate_arguments
 from bluesec1_agent.llm import StructuredStepClient, render_json
 from bluesec1_agent.recording import RunRecorder
 from bluesec1_client import (
@@ -195,6 +196,7 @@ class SimpleSGRAgent:
         """
         observation = session.task.observation
         tool_specs = self._tool_specs(observation)
+        argument_schemas = check_catalog(tool_specs)
         available_tools = {
             specification["name"]
             for specification in tool_specs
@@ -267,6 +269,19 @@ class SimpleSGRAgent:
                     "status": "error",
                     "message": "The final step is reserved for submission.",
                 }
+            elif schema_errors := validate_arguments(arguments, argument_schemas[tool_name]):
+                feedback = {
+                    "status": "error",
+                    "message": "Arguments do not match the current runtime catalog.",
+                    "violations": schema_errors,
+                }
+                self._record(
+                    "action_rejected",
+                    task_id=session.task_id,
+                    step=step_index,
+                    reason="runtime_schema",
+                    violations=schema_errors,
+                )
             elif call_key in previous_reads:
                 feedback = {
                     **previous_reads[call_key],

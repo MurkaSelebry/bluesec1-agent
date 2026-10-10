@@ -8,6 +8,7 @@ dependencies = [
     "googleapis-common-protos>=1.75,<2",
     "grpcio>=1.83,<2",
     "grpcio-status>=1.83,<2",
+    "jsonschema>=4.26,<5",
     "loguru>=0.7,<1",
     "openai>=2.26,<3",
     "protobuf>=7.35.1,<8",

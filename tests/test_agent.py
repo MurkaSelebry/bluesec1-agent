@@ -344,3 +344,21 @@ def test_terminal_result_survives_a_trace_write_failure() -> None:
 
     assert result.successful_tasks == 1
     assert result.task_results[0].completion_reason == "terminated"
+
+
+def test_incompatible_catalog_stops_before_llm_and_remote_action() -> None:
+    class IncompatibleSession(FakeSession):
+        async def abort_task(self, *, error_message=None):
+            return TaskResult(task_id=self.task_id, completion_reason="aborted")
+
+    session = IncompatibleSession()
+    session.task.observation["available_tools"] = json.dumps(
+        [{"name": "finish_investigation", "parameters": {
+            "type": "object", "required": ["submission", "unknown_required"]
+        }}]
+    )
+    llm = FakeStepClient([finish_step()])
+    result = asyncio.run(SimpleSGRAgent(llm).run(cast(RemoteBenchmarkClient, FakeClient(session))))
+    assert result.failed_tasks == 1
+    assert llm.requests == []
+    assert session.calls == []
