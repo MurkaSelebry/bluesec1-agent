@@ -9,5 +9,14 @@
     "unknown_terminal_not_zero_score"
   ],
   "official_score": null,
-  "usage": "Harness checks only; never pass this file to the investigating model."
+  "usage": "Harness checks only; never pass this file to the investigating model.",
+  "checks": {
+    "accepted_final": null,
+    "remote_call_count": 2,
+    "abort_calls": 0,
+    "remote_finish_calls": 1,
+    "quality_score": null,
+    "task_result_count": 0,
+    "cleanup_status": "closed_confirmed"
+  }
 }

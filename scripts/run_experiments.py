@@ -20,6 +20,60 @@ from bluesec1_agent.evaluation import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# The child checks the exact effective Settings in the same process before CLI
+# imports create any provider/runtime clients. Only allowlisted configuration is
+# emitted by the separate preflight probe; neither command serializes secrets.
+_CONFIG_PROBE = """
+import json
+from bluesec1_agent.evaluation import sanitized_effective_configuration
+from bluesec1_agent.settings import Settings
+try:
+    print(json.dumps(sanitized_effective_configuration(Settings()), sort_keys=True))
+except Exception:
+    raise SystemExit('Cannot load effective configuration') from None
+"""
+_CHECKED_CLI = """
+import json, sys
+from pathlib import Path
+from bluesec1_agent.evaluation import verify_effective_configuration
+from bluesec1_agent.settings import Settings
+manifest = json.loads(Path(sys.argv[1]).read_text())
+try:
+    verify_effective_configuration(manifest['sanitized_configuration'], Settings())
+except Exception:
+    raise SystemExit('Effective configuration refused before launch') from None
+sys.argv = ['bluesec1-agent', *sys.argv[2:]]
+from bluesec1_agent.cli import main
+main()
+"""
+
+
+def _env_command(manifest: dict) -> list[str]:
+    return [
+        "uv",
+        "run",
+        "--offline",
+        "--locked",
+        "--env-file",
+        manifest["canonical_env_file"],
+        "--",
+        sys.executable,
+    ]
+
+
+def probe_effective_configuration(manifest: dict) -> dict:
+    """Read non-secret effective values under exactly the future child env-file."""
+    try:
+        output = subprocess.check_output(
+            _env_command(manifest) + ["-c", _CONFIG_PROBE],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.PIPE,
+        )
+        return json.loads(output)
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        raise ValueError("effective configuration probe failed") from None
+
 
 def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
@@ -48,21 +102,29 @@ def verify_source(manifest: dict, digest: str, path: Path, gate_path: Path) -> N
     if dirty:
         raise ValueError("uncommitted production source changes")
     fingerprints = manifest.get("source_fingerprints", {})
-    if not fingerprints or not {"pyproject.toml", "uv.lock"} <= fingerprints.keys():
-        raise ValueError("frozen manifest missing source fingerprints")
+    source_paths = set(
+        _git("ls-files", "--", "src", "scripts", "pyproject.toml", "uv.lock").splitlines()
+    )
+    if not source_paths or set(fingerprints) != source_paths:
+        raise ValueError("frozen manifest must fingerprint all production files and scripts")
     for relative, fingerprint in fingerprints.items():
         source = (ROOT / relative).resolve()
         if not source.is_relative_to(ROOT) or sha256_file(source) != fingerprint:
             raise ValueError(f"source fingerprint mismatch: {relative}")
+    for control, fingerprint in manifest["hidden_control_hashes"].items():
+        if not Path(control).is_absolute() or sha256_file(Path(control)) != fingerprint:
+            raise ValueError("hidden control hash mismatch")
+    if probe_effective_configuration(manifest) != manifest["sanitized_configuration"]:
+        raise ValueError("effective configuration differs from frozen manifest")
 
 
-def command_for(manifest: dict, slot: dict, output: Path) -> list[str]:
+def command_for(manifest: dict, slot: dict, output: Path, manifest_path: Path) -> list[str]:
     config = manifest["configurations"][slot["configuration_id"]]
     limits = manifest["limits"]
-    command = [
-        sys.executable,
-        "-m",
-        "bluesec1_agent",
+    command = _env_command(manifest) + [
+        "-c",
+        _CHECKED_CLI,
+        str(manifest_path.resolve()),
         "--model",
         config["model"],
         "--strategy",
@@ -143,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
                 (output / "launcher.stderr").open("w") as stderr,
             ):
                 completed = subprocess.run(
-                    command_for(manifest, slot, output),
+                    command_for(manifest, slot, output, args.manifest),
                     cwd=ROOT,
                     stdout=stdout,
                     stderr=stderr,

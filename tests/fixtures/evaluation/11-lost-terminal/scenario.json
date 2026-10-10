@@ -7,19 +7,21 @@
     "partition": "development",
     "author": "E",
     "source": "cycle-01-plan-section-6",
-    "revision": 1
+    "revision": 2
   },
   "observation": {
     "alert_text": {
       "trigger_entities": [
-        "trigger"
+        {
+          "id": "trigger",
+          "type": "windows_process"
+        }
       ]
     }
   },
   "graph": {
     "entities": [
       {
-        "entity_id": "trigger",
         "type": "windows_process",
         "properties": {},
         "relation_ids": {
@@ -27,10 +29,10 @@
             "edge-1"
           ],
           "outgoing": []
-        }
+        },
+        "id": "trigger"
       },
       {
-        "entity_id": "neighbor",
         "type": "windows_process",
         "properties": {},
         "relation_ids": {
@@ -38,16 +40,17 @@
           "outgoing": [
             "edge-1"
           ]
-        }
+        },
+        "id": "neighbor"
       }
     ],
     "relations": [
       {
-        "relation_id": "edge-1",
         "type": "parent_of",
         "source_id": "neighbor",
         "target_id": "trigger",
-        "properties": {}
+        "properties": {},
+        "id": "edge-1"
       }
     ]
   },
@@ -55,6 +58,31 @@
     "tool_error": false,
     "step_limit": 60,
     "lost_terminal_response": true,
-    "unsupported_required_field": null
+    "unsupported_required_field": null,
+    "tool_error_count": 0
+  },
+  "scripted_actions": [
+    {
+      "tool": "get_entity",
+      "entity_id": "trigger",
+      "reasoning": "Read a referenced entity."
+    },
+    {
+      "tool": "finish_investigation",
+      "submission": {
+        "verdict": "malicious",
+        "reasoning": "Synthetic observed-entity probe; no classification inference.",
+        "ir_artifacts": [
+          {
+            "entity_id": "trigger",
+            "kind": "process_observed"
+          }
+        ]
+      }
+    }
+  ],
+  "driver_limits": {
+    "max_steps": 2,
+    "max_context_chars": 6000
   }
 }

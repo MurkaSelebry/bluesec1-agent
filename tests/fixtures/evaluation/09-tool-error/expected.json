@@ -8,5 +8,16 @@
     "error_payload_never_promotes_observed_fact"
   ],
   "official_score": null,
-  "usage": "Harness checks only; never pass this file to the investigating model."
+  "usage": "Harness checks only; never pass this file to the investigating model.",
+  "checks": {
+    "accepted_final": true,
+    "remote_call_count": 3,
+    "abort_calls": 0,
+    "violation_codes": [
+      "not_observed"
+    ],
+    "cache_hits": 0,
+    "failed_results": 1,
+    "cleanup_status": "closed_confirmed"
+  }
 }

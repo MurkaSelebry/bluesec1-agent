@@ -102,3 +102,39 @@ The 12 graph fixtures and their SDK read/replay contracts pass offline. Behavior
 A/H/C runs, hidden variants, the final integrated SHA, sanitized runtime settings,
 R review and C LIVE_READY remain dependencies for the next phase. The phase is
 not evidence of model accuracy or repaired integrated lifecycle behavior.
+
+## Integrated-phase additions
+
+`eval_offline.py --behavioral` executes all 12 scenario scripts through actual
+A/H/C code and outputs checked invariants, failures, source commit plus byte
+fingerprints and absolute per-case traces. It returns nonzero for any failed
+check. Graph-only evaluation remains separately available.
+
+Result aggregation now tolerates corrupt/non-file result.json, records artifact
+read errors, falls back to partial-result.json, and salvages authoritative terminal
+trace results including zero. Partial-result content has its own source hash.
+Structured wrong_kind/unknown_object/etc. violations count as provenance failures;
+runtime schema strings do not inflate that count.
+
+The conservative stop policy also contains `capacity`. A definite creation rejection
+reserves/consumes its attempt and stops with capacity/auth/schema as appropriate,
+while cleanup remains failed/unknown (never invented closed).
+
+Frozen gate now requires `sanitized_configuration`, nonempty `hidden_control_hashes`,
+and absolute `canonical_env_file`. Source fingerprints must cover exactly every
+Git-tracked file under src/ and scripts/, plus pyproject.toml and uv.lock, including
+proto and stub files. Control-file hashes are checked before each attempt.
+
+The E allowlist helper `sanitized_effective_configuration(Settings())` includes
+provider/runtime endpoints, TLS, arena, default model, LLM retry/tokens/timeout,
+agent/run name and SDK retry/deadline defaults. It never dumps Settings or secrets.
+Launcher probes these values using `uv run --offline --locked --env-file <canonical>`
+and compares with the frozen object before every attempt. Its child uses the same
+env-file and repeats the comparison in-process before invoking CLI.main, so an
+environment change between parent preflight and child start cannot silently alter
+the experiment. No real configuration probe has been executed in E's offline phase.
+
+Private control preparation tooling is ignored, unexecuted and withheld from A/C.
+Actual variants/hashes and any hidden behavioral execution wait for C's final SHA
+and freeze instruction. Keep the preceding draft source fingerprints separate from
+that final freeze; this commit is not LIVE_READY.

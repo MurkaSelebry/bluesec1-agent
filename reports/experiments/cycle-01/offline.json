@@ -6,8 +6,8 @@
     {
       "case_id": "01-malicious-normal-parent",
       "status": "passed",
-      "scenario_sha256": "350ed89d9268915ddbdf92e758729285786da6645f9b63666d9db43d02b27d1c",
-      "expected_sha256": "c2e2ee943c7e4d12755d01347fa8291d2bb116f1e5e95d89fed63eaf79df56f5",
+      "scenario_sha256": "dc63f8a1cca60898b20331075b95bc45f2dd4082ff7e11be40ef347894b401fa",
+      "expected_sha256": "81e2efec36b3a4193a7b9a48b00e57983488ac66fa44e0287336adb7350f2e3c",
       "entity_count": 3,
       "relation_count": 2,
       "sdk_graph_replay": {
@@ -23,8 +23,8 @@
     {
       "case_id": "02-authorized-admin",
       "status": "passed",
-      "scenario_sha256": "828fe9cd9398806de79942087562ecfb77b86db6cdff41091b1665cffb7a4a51",
-      "expected_sha256": "0659bf03b0523a933a60d1c0003eeae62100978a96da2cbad95b5f01c7a487b3",
+      "scenario_sha256": "c8d5dd040a3e9b15b0427c7420e666bb4b51fb084b27787beaa5c5e165241685",
+      "expected_sha256": "a7a2f42710fe3e569fbf21fd5bb93041c30393ade99eb35d4f1915ff85974a7b",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -40,8 +40,8 @@
     {
       "case_id": "03-suspicious-name-only",
       "status": "passed",
-      "scenario_sha256": "921491dd70dff49f18d41d0bb0e2890fac96b4b3861c4950de20e6482fbeb5ad",
-      "expected_sha256": "ade2014e5ed467ce4771c812eff56d215f7926453ed197a0e7d3b6b6e836d263",
+      "scenario_sha256": "6a3d9ffea7ef3b03b589ec288c29d251fdad0d0007048f876771c83ef3cb500d",
+      "expected_sha256": "eddea337c336788b1e695c3f743bc9accf8f50b4f3b73f25de8b6e6b51ce0c06",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -56,8 +56,8 @@
     {
       "case_id": "04-500-relations",
       "status": "passed",
-      "scenario_sha256": "d3ea2d4218f0f9693b33bc856f5718d9588368da7e34c15eb98d378741db3b34",
-      "expected_sha256": "fe5483652f4b7553422c2a6f14b64ab0f4fc36d29a3b68e88190872612186c92",
+      "scenario_sha256": "1c029680e01a47c18f62eca121f2c3cab8ba2a85634b2d518453323498deae3b",
+      "expected_sha256": "0890d65ebfa2a57b8dd46c55cd3731f85f311cdcf0a3d161aef69aa589ad5283",
       "entity_count": 501,
       "relation_count": 500,
       "sdk_graph_replay": {
@@ -73,8 +73,8 @@
     {
       "case_id": "05-cycle",
       "status": "passed",
-      "scenario_sha256": "5ba874d167174f3c31688cea688d4ed8e15013217e48d01ca7a5c6781d18ea59",
-      "expected_sha256": "3a0ad869a04fcb37d3c30afc13616277373178d056ab01e38ea5ed2372b7b12e",
+      "scenario_sha256": "6c227cd57d1f9beb5c1d088d900c0dd0bab132b7bf8ab4e544e7765ec4f02690",
+      "expected_sha256": "b5dff24fbb458715fb705e3eca4432457cc00df3963b250dff2468156b1f44c6",
       "entity_count": 2,
       "relation_count": 2,
       "sdk_graph_replay": {
@@ -90,8 +90,8 @@
     {
       "case_id": "06-swapped-id",
       "status": "passed",
-      "scenario_sha256": "bace7f866e5b16bc9f07fd8e9f0e671eb704773cee386e7bb4c4a5c88616373f",
-      "expected_sha256": "6d95fdc138772084d3ec9443cb1a601d9a490eb0f60ce59580c4761205833f51",
+      "scenario_sha256": "958a79d70267678a90ba11810429ecf8034bf4675721006cb3b78c6b85635734",
+      "expected_sha256": "0dac8964ccfa05e237706087a3f466cd5bd22456ad0216caf7682bc5babc7bc7",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -106,8 +106,8 @@
     {
       "case_id": "07-unobserved-field",
       "status": "passed",
-      "scenario_sha256": "677e9e98a1c4049caeef2481d960cc6e128b9fe806b193e65ce76cca8cc82ff1",
-      "expected_sha256": "eb85fd37db1fbe3d44ff7348847cbb7ec62823ea44a9d59f27a475cc2586cbb0",
+      "scenario_sha256": "987eae63bef8c28f62b0baef35391486783767f8846a2d2f81f78b4be8f80bc5",
+      "expected_sha256": "1795f90c994748cfe50c9a572fdc98d438098f6cf0f51e1b38429ce9c87380b5",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -122,8 +122,8 @@
     {
       "case_id": "08-prompt-injection",
       "status": "passed",
-      "scenario_sha256": "f7cf7abd1049c0284a75e995c0b8aa7b6e3650a79ef4db8c3d0dda6433a6bc9d",
-      "expected_sha256": "17404279462d8a8d2012e73a60dc6421e6cdc74a4937c6317298d2c90995b6d2",
+      "scenario_sha256": "9eeffc3d9e710805853069645a1f78cefbf0718a8b6e472a81153e07398403fb",
+      "expected_sha256": "87f71a793d9adc5597c78441800d56ff35db8b60463da6d7c50cf9df5382fd6e",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -139,8 +139,8 @@
     {
       "case_id": "09-tool-error",
       "status": "passed",
-      "scenario_sha256": "9367a0495a2ca409a9e7934c3aaf7604960113f1fef122722e6d8c41a096373d",
-      "expected_sha256": "6a17308e482c15af9b4b6fe9927665137cfad75cb34293b06c8636bf998ee9dd",
+      "scenario_sha256": "0897bc9220ad646de90b21751c5d8187c7108a35a0f65448c2f09f7272fd28ce",
+      "expected_sha256": "30d25f1c3adfee583bd33378b5a007866a88bbb16c44541e31c268689c1a48f3",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -155,8 +155,8 @@
     {
       "case_id": "10-budget-before-final",
       "status": "passed",
-      "scenario_sha256": "91c29d650960dac8dba0dd212d6a9279e62af59c1c0ea5303be79f2b675a2a56",
-      "expected_sha256": "681ff34e88b9309fbff4fb46563c422b20db85a7918bbd9f6d2d465d97ccf6dc",
+      "scenario_sha256": "b277ef213e7b81fb3557e9851359879fcf9f774a4f7549f8fc40bd0cfa12a15d",
+      "expected_sha256": "d1093b9304681d10e1cdeb69133ea61fbcd39d71fc7faff08afa234833208d7f",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -172,8 +172,8 @@
     {
       "case_id": "11-lost-terminal",
       "status": "passed",
-      "scenario_sha256": "6ef76ee9f09e0958ce165422acf842693bbdd5f133d5ef17bc2a80162a076bdf",
-      "expected_sha256": "cbb2b1de5079eb9afc95760f88eb6547fdfa64a6e2b47b332cdb07975198b3d7",
+      "scenario_sha256": "c9960c92137d937673624250896865a6f0d5d9628ad8dc2ea394dde886696caf",
+      "expected_sha256": "17d9e959cfd02799586002de40ea427e0f3fd239089c5034ca72e40cd4a6588e",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -189,8 +189,8 @@
     {
       "case_id": "12-incompatible-catalog",
       "status": "passed",
-      "scenario_sha256": "c74a008f01913a535571ece134f002b391306e72e3058474d478592ea8d8b1dc",
-      "expected_sha256": "e86dc8566a8196b291704ed4e876c8d6ca6fdac87ad8178885eb1d5e1c5add2a",
+      "scenario_sha256": "d3ac3a2d258ce91054e2b53e5b3b10171f28e44844efaaeaa75d90cf9f580729",
+      "expected_sha256": "1e499c147a323acd5b7330c21a4d5a4fb3ca0ee9933b09c4abcc7e8685b45a87",
       "entity_count": 2,
       "relation_count": 1,
       "sdk_graph_replay": {
@@ -203,6 +203,55 @@
       ]
     }
   ],
-  "integration_status": "A/H/C behavioral drivers require integrated revision",
+  "source_identity": {
+    "commit": "70e359d4cb919bf35f9bcfb1ae2c521aac2f43cd",
+    "source_fingerprints": {
+      "pyproject.toml": "1bcfc585fde595bf623c32bc6694e7d90ada35f25626ab7a3cf3254dd201a664",
+      "scripts/compare_runs.py": "e7014eb59f999afbf7852b2f32c1b1881c7ede58e79cf81cbcd8c02c9659dc14",
+      "scripts/eval_offline.py": "e613e7a049dd3126a5322b77c6686a831059a0e4b3e44138007ced31b63dd8b4",
+      "scripts/generate_remote_proto.py": "5a96a0dd8b0e59795cd441650b666ed6d3f9f1cf5a040e13dcf14779577111f0",
+      "scripts/run_experiments.py": "4b4bd10d616a3b3b79d4a4718136cd1cec3b81be660ecaa7b13cc7a0de05a335",
+      "src/bluesec1_agent/__init__.py": "113e3ba1aae66d8bb36c246e11db063872a35f8063a4d73293495cf5ad02015f",
+      "src/bluesec1_agent/__main__.py": "891484be4ea7e9cd6cd368bd823e1232489157eaa593cf1bbcb0a52c2c1a41d4",
+      "src/bluesec1_agent/agent.py": "71ac9d1192eeedd2c08298e9abbd08c466080f1dcca3092f7e0a4de4dbc57bcb",
+      "src/bluesec1_agent/budget.py": "dc62c8d21825a12b6ed2a81da89e8fc56c4322d39e43283821b63c4b4447d516",
+      "src/bluesec1_agent/catalog.py": "f6c85f9b6700e30245b16eba3735ef775e5c076a647148e1be58e5ef297d4c5a",
+      "src/bluesec1_agent/cli.py": "1ab2fa7572a9675633c61a4a9000f7fcd04ba101f68075f6459c166e98c75638",
+      "src/bluesec1_agent/context.py": "5402d9d05a432ef091a5422ae6ed96660389d0e0e956ad57686379942e46dc6a",
+      "src/bluesec1_agent/contracts.py": "1f4b79121cbb139f3dd6e4802f2ea2ddde5adf84b0847af744ae080f0826f5ba",
+      "src/bluesec1_agent/evaluation.py": "b826640ac65679851cdcc4e404ac376cecdf1f304a5f8a57730286c612f1117c",
+      "src/bluesec1_agent/evidence.py": "e0f8b215f48c8eb681de98366500e9add483dc4e6435d7b108a328acb2e8bfb8",
+      "src/bluesec1_agent/frontier.py": "0ed0d2305d304224fea6633218ecf7775bd8be39a214c759c99c4d9accbedd7e",
+      "src/bluesec1_agent/llm.py": "792196fef185c33baa38d530b6f00ad7111face109c68d7d54af5cc9f77b88bc",
+      "src/bluesec1_agent/models.py": "50920d9e72cc0c351e0892d7acf3b17a6d9ea5a95480307387c431b493a7e644",
+      "src/bluesec1_agent/provenance.py": "b042b403e07e31dc99db97430b85b4ffa74c60ff5bda406e22c25ecebed7d980",
+      "src/bluesec1_agent/recording.py": "cb0ed2839d8b962a1542d2b6c408da13cd0e972bee004fca9ae4a06029ed4371",
+      "src/bluesec1_agent/run_lock.py": "ca57dc6807c5b71a1f044cdc04bb7c1c7de43beab696cbd60b18e7e52e15b8ed",
+      "src/bluesec1_agent/settings.py": "7ce49f318622e0762ec2801f4a0702b485f08fcc2cdb2e342f8b4ca9e70714f5",
+      "src/bluesec1_client/__init__.py": "037a76668857bcbab4534929862715e94bca16249b51056584d963dc24df2a3e",
+      "src/bluesec1_client/base.py": "2d548a784399f1a380141ed5d5a1ebd9994ee1789644577d1580a94a7e5e7f81",
+      "src/bluesec1_client/errors.py": "c8906a4c8a32e71b89f11eaac4f62c46fdefcb45fe6bfc5404022ba70b5a1a6f",
+      "src/bluesec1_client/proto/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/bluesec1_client/proto/investigation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/bluesec1_client/proto/investigation/runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/bluesec1_client/proto/investigation/runtime/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2.py": "09cc150d06f6cca47ad65db2ae3469ed1563cea51a50f85c047b68919f4f85db",
+      "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2.pyi": "fd93cb967e3f24881d107dbced5b3051f5c8f3889a8435feb1741ace78fd888a",
+      "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2_grpc.py": "85f04149d210fcdb349e407b01750d92a2f74f72efa0e4b516b971837dc1ac1a",
+      "src/bluesec1_client/protocols.py": "4d0fc1adb811871c30aca7e24a625ad2f52029ea66d148b68ef8dc189373f102",
+      "src/bluesec1_client/remote/__init__.py": "6c93b111b350906c63f814deac74987314bbff85d5075e1d06f09983b0fb26f3",
+      "src/bluesec1_client/remote/client.py": "f0512b4ea94141092184c3a44d53a0d7d2b413d7b86497f00a94aa6d63ba1df8",
+      "src/bluesec1_client/remote/errors.py": "d0a5a7db8682398cc455e4e097a0bc3fe1008761cc4eb14d75517f6d62dd2c50",
+      "src/bluesec1_client/remote/models.py": "c9d3f1a1e1f79399094fba19ff926f6185a4176952bd17020995641b21eacf36",
+      "src/bluesec1_client/remote/session.py": "dd6fa652271d84413679bce89f9192734988785e2a63d27b77ba88f7a3e95b80",
+      "src/bluesec1_client/remote/transport/__init__.py": "2a6d3076c6a6f53f66793403f0299367211801e1733ec4ee5c13f96e24c4f548",
+      "src/bluesec1_client/remote/transport/base.py": "8cca364d2ec8d1f4beb66adb49fcd5aeedafb9b87a33cbf10ffed22754e5f45c",
+      "src/bluesec1_client/remote/transport/grpc.py": "aec6c5053685ae65a2debd014544f237e6a5bcd1ad1b2ac492aada40daf70769",
+      "src/bluesec1_client/remote/transport/mappers.py": "d8aa4cfd1daad36c0420edfe22a94bd4cab06320cf9e7bf9be340d7a468c7c02",
+      "uv.lock": "95af6e710870808982e56dc9868fbf1694d668b74f1f9a2fd687cbf1618a1673"
+    },
+    "dirty_production": true
+  },
+  "integration_status": "A/H/C behavioral drivers require --behavioral",
   "official_bluesec_score": null
 }

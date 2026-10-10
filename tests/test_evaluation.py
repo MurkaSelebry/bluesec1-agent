@@ -466,3 +466,173 @@ def test_explicit_unknown_cleanup_is_not_false_confirmation(tmp_path):
     summary = module().summarize_run(trace, None)
     assert summary["cleanup"]["status"] == "unknown"
     assert summary["cleanup_confirmed"] is None
+
+
+@pytest.mark.parametrize("case_number", range(1, 13))
+def test_integrated_behavioral_case(case_number, tmp_path):
+    spec = importlib.util.spec_from_file_location("behavioral", ROOT / "scripts/eval_offline.py")
+    driver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(driver)
+    case = next((ROOT / "tests/fixtures/evaluation").glob(f"{case_number:02d}-*/scenario.json"))
+    report = driver.evaluate_behavior(case, tmp_path)
+    assert report["status"] == "passed", report
+    assert report["checked_invariants"]
+    assert report["official_bluesec_score"] is None
+    assert report["model_accuracy_evaluated"] is False
+
+
+@pytest.mark.parametrize("damage", ["directory", "corrupt"])
+def test_salvage_terminal_zero_and_partial_result_after_artifact_damage(tmp_path, damage):
+    result = tmp_path / "result.json"
+    if damage == "directory":
+        result.mkdir()
+    else:
+        result.write_text('{"broken')
+    partial = tmp_path / "partial-result.json"
+    partial.write_text(
+        json.dumps(
+            {
+                "run_id": "r",
+                "cleanup": {"status": "closed_confirmed"},
+                "task_results": [],
+                "artifact_errors": [{"operation": "write_result"}],
+            }
+        )
+    )
+    trace = write_trace(
+        tmp_path,
+        [
+            event(
+                "task_finished",
+                task_id="t",
+                result={"task_id": "t", "completion_reason": "terminated", "quality_score": 0},
+            )
+        ],
+    )
+    summary = module().summarize_run(trace, result)
+    assert summary["accepted_final"] is True
+    assert summary["quality_score"] == 0
+    assert summary["cleanup_confirmed"] is True
+    assert summary["artifact_errors"]
+    assert summary["source_sha256"]["partial_result"] == module().sha256_file(partial)
+
+
+def test_wrong_namespace_uses_structured_violation_code_not_reason_spelling(tmp_path):
+    trace = write_trace(
+        tmp_path,
+        [
+            event(
+                "action_rejected",
+                reason="action_rejected",
+                violations=[{"code": "wrong_kind", "object_id": "r"}],
+            ),
+            event("action_rejected", reason="runtime_schema", violations=["invalid schema"]),
+        ],
+    )
+    assert module().summarize_run(trace, None)["provenance_rejections"] == 1
+
+
+@pytest.mark.parametrize("category", ["capacity", "auth", "schema"])
+def test_definite_creation_rejection_consumes_slot_and_keeps_stop_reason(tmp_path, category):
+    journal = module().AttemptJournal(tmp_path / "attempts.jsonl", "abc")
+    slots = [{"slot_id": f"{i:02d}"} for i in range(1, 17)]
+    module().execute_series(
+        slots,
+        journal,
+        lambda _: {
+            "error_category": category,
+            "run_creation_rejected": True,
+            "cleanup_confirmed": False,
+            "run_id": None,
+        },
+    )
+    report = module().reconcile_attempts(slots, journal.path)
+    assert report["attempted_count"] == 1
+    assert report["stop_reason"] == category
+    assert all(row["status"] == "not_started" for row in report["attempts"][1:])
+
+
+def synthetic_settings(**overrides):
+    from bluesec1_agent.settings import Settings
+
+    return Settings(
+        _env_file=None,
+        scenario_runtime_token="synthetic",
+        llm_api_key="synthetic",
+        llm_base_url="https://offline.invalid/v1",
+        llm_default_model="gpt-6-luna",
+        **overrides,
+    )
+
+
+def test_effective_configuration_rejects_environment_drift_without_exposing_keys():
+    reference = module().sanitized_effective_configuration(synthetic_settings())
+    assert "synthetic" not in json.dumps(reference)
+    changed = synthetic_settings(llm_max_completion_tokens=17)
+    with pytest.raises(ValueError, match="configuration"):
+        module().verify_effective_configuration(reference, changed)
+    module().verify_effective_configuration(reference, synthetic_settings())
+
+
+def test_frozen_gate_requires_reviewed_config_and_hidden_control_hashes():
+    manifest = json.loads((ROOT / "reports/experiments/cycle-01/manifest.json").read_text())
+    manifest.update(freeze_state="frozen", integrated_sha="1" * 40)
+    gate = {
+        "live_ready": True,
+        "integrated_sha": "1" * 40,
+        "manifest_sha256": "abc",
+        "reviewer": "R",
+        "review_approved": True,
+        "review_artifact": "/review.md",
+    }
+    with pytest.raises(ValueError, match="configuration"):
+        module().validate_live_gate(manifest, "abc", gate, "1" * 40)
+    manifest["sanitized_configuration"] = module().sanitized_effective_configuration(
+        synthetic_settings()
+    )
+    with pytest.raises(ValueError, match="hidden"):
+        module().validate_live_gate(manifest, "abc", gate, "1" * 40)
+
+
+def test_child_config_guard_precedes_cli_even_after_parent_check(tmp_path, monkeypatch):
+    import sys
+
+    from bluesec1_agent import cli
+    from bluesec1_agent.settings import Settings
+
+    spec = importlib.util.spec_from_file_location(
+        "checked_launcher", ROOT / "scripts/run_experiments.py"
+    )
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    expected = module().sanitized_effective_configuration(synthetic_settings())
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"sanitized_configuration": expected}))
+    monkeypatch.setenv("SCENARIO_RUNTIME_TOKEN", "synthetic")
+    monkeypatch.setenv("LLM_API_KEY", "synthetic")
+    monkeypatch.setenv("LLM_BASE_URL", "https://offline.invalid/v1")
+    monkeypatch.setenv("LLM_DEFAULT_MODEL", "gpt-6-luna")
+    monkeypatch.setenv("LLM_MAX_COMPLETION_TOKENS", "17")
+    monkeypatch.setattr(Settings, "model_config", {**Settings.model_config, "env_file": None})
+    monkeypatch.setattr(sys, "argv", ["-c", str(manifest_path)])
+
+    def forbidden():
+        raise AssertionError("CLI must not run after configuration drift")
+
+    monkeypatch.setattr(cli, "main", forbidden)
+    with pytest.raises(SystemExit, match="configuration refused"):
+        exec(launcher._CHECKED_CLI, {})
+
+
+def test_child_command_uses_canonical_env_file_and_fixed_cli_limits(tmp_path):
+    spec = importlib.util.spec_from_file_location("commands", ROOT / "scripts/run_experiments.py")
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    manifest_path = ROOT / "reports/experiments/cycle-01/manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    command = launcher.command_for(manifest, manifest["slots"][0], tmp_path, manifest_path)
+    assert command[0] == "uv"
+    assert command[command.index("--env-file") + 1] == manifest["canonical_env_file"]
+    assert command[command.index("--max-steps") + 1] == "60"
+    assert command[command.index("--task-timeout-seconds") + 1] == "900"
+    assert command[command.index("--runtime-state-dir") + 1] == manifest["runtime_state_dir"]

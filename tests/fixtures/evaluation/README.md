@@ -41,7 +41,26 @@ out of agent input. R receives the variants after freeze. If a variant is used f
 prompt/code tuning, it becomes development data for the next cycle. No hidden
 control has been generated or exposed during this offline preparation phase.
 
-Origin: E, plan section 6, 2026-10-10; source base
+Origin: E, plan section 6, 2026-10-10; initial source base
 `e29a16c4ae5b02d8f4d2e5247915210035d550fa`. Content fingerprints accompany the draft
 manifest and offline result. Review all commits and failures; do not select only
 successful cases.
+
+## Integrated behavioral driver
+
+Use `--behavioral` to run the actual SimpleSGRAgent strategy v2, EvidenceStore,
+context/provenance gates, RemoteBenchmarkClient and RemoteBenchmarkSession with
+an injected ScriptedStepClient and GraphTransport. Fixtures use canonical `id`
+object keys. Scripted actions are scenario data; expected checks are loaded only
+after the run and never supplied to the step client. Each case records exact RPC,
+abort/close, rejection, cache and evidence-context outcomes. Synthetic terminal
+scores are probe outputs, not official BlueSec scores. The driver does not test
+an LLM's ability to choose actions or classify an incident.
+
+Specific proof boundaries: case 01 checks that ordinary ancestry leaves an unread
+outgoing lead in the frontier; case 03 checks that a suspicious name cannot cause
+an invented artifact to pass provenance. Neither proves correct classification.
+Case 04 checks 500 retained relation references, explicit context omissions and
+navigation to a relation omitted from the compact view. Case 08 tests that the
+injection remains user evidence and forged IDs fail local gates; model obedience
+is not measured by a scripted client.

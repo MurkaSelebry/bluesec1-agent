@@ -89,11 +89,29 @@ def summarize_run(trace_path: Path, result_path: Path | None) -> dict[str, Any]:
     """Preserve unknowns and terminal outcomes even with missing/failed artifact writes."""
     events, warnings = read_events(trace_path)
     result: dict[str, Any] = {}
-    if result_path is not None and result_path.exists():
-        result = json.loads(result_path.read_text(encoding="utf-8"))
-        if not isinstance(result, dict):
-            raise ValueError("result must be an object")
-    else:
+    artifact_errors = []
+    partial_path = result_path.with_name("partial-result.json") if result_path else None
+    for candidate in (result_path, partial_path):
+        if candidate is None or not candidate.exists():
+            continue
+        try:
+            loaded = json.loads(candidate.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict):
+                raise ValueError("result must be an object")
+        except (OSError, ValueError) as error:
+            artifact_errors.append(
+                {
+                    "operation": "read_result",
+                    "file": candidate.name,
+                    "error_type": type(error).__name__,
+                }
+            )
+            continue
+        result = loaded
+        if candidate == partial_path:
+            warnings.append("partial_result_fallback")
+        break
+    if not result:
         warnings.append("missing_result")
     tasks, task_ids, attempts, finished = {}, [], {}, {}
     remote_calls, cache_hits, repairs, rejections, decisions = 0, 0, 0, 0, 0
@@ -138,12 +156,21 @@ def summarize_run(trace_path: Path, result_path: Path | None) -> dict[str, Any]:
         decisions += name == "step_selected"
         rejections += name == "submission_rejected" or (
             name == "action_rejected"
-            and p.get("reason")
-            in (
-                "provenance",
-                "unknown_id",
-                "wrong_namespace",
-                "evidence",
+            and (
+                p.get("reason") in ("provenance", "unknown_id", "wrong_namespace", "evidence")
+                or any(
+                    isinstance(v, dict)
+                    and v.get("code")
+                    in {
+                        "unknown_object",
+                        "wrong_kind",
+                        "not_observed",
+                        "unknown_field",
+                        "artifact_type_mismatch",
+                        "conflicting_type",
+                    }
+                    for v in p.get("violations", [])
+                )
             )
         )
         if name in ("run_failed", "task_error"):
@@ -212,7 +239,10 @@ def summarize_run(trace_path: Path, result_path: Path | None) -> dict[str, Any]:
         "result_path": str(result_path.resolve()) if result_path else None,
         "source_sha256": {
             "trace": sha256_file(trace_path) if trace_path.exists() else None,
-            "result": sha256_file(result_path) if result_path and result_path.exists() else None,
+            "result": sha256_file(result_path) if result_path and result_path.is_file() else None,
+            "partial_result": sha256_file(partial_path)
+            if partial_path and partial_path.is_file()
+            else None,
         },
         "run_id": run_id,
         "task_ids": task_ids,
@@ -235,7 +265,8 @@ def summarize_run(trace_path: Path, result_path: Path | None) -> dict[str, Any]:
         "cleanup": cleanup,
         "cleanup_confirmed": cleanup_confirmed,
         "error_category": result.get("error_category"),
-        "artifact_errors": result.get("artifact_errors", []),
+        "run_creation_rejected": result.get("run_creation_rejected"),
+        "artifact_errors": [*result.get("artifact_errors", []), *artifact_errors],
         "metadata": result.get("metadata", {}),
         "errors": errors,
         "warnings": warnings,
@@ -337,7 +368,11 @@ def execute_series(
             consecutive_infrastructure + 1 if category == "infrastructure" else 0
         )
         reason = None
-        if summary.get("cleanup_confirmed") is not True:
+        if category == "capacity" or (
+            category in ("auth", "schema") and summary.get("run_creation_rejected") is True
+        ):
+            reason = category
+        elif summary.get("cleanup_confirmed") is not True:
             reason = "unknown_run_state"
         elif category in ("auth", "schema", "unknown_run_state"):
             reason = category
@@ -440,6 +475,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         "unknown_run_state",
         "auth",
         "schema",
+        "capacity",
         "two_consecutive_infrastructure_failures",
     ]:
         raise ValueError("invalid stop policy")
@@ -467,6 +503,50 @@ def validate_live_gate(
         or not gate.get("review_artifact")
     ):
         raise ValueError("live gate must approve exact integrated SHA and manifest SHA256")
+    if not manifest.get("sanitized_configuration"):
+        raise ValueError("frozen manifest requires sanitized effective configuration")
+    controls = manifest.get("hidden_control_hashes")
+    if (
+        not isinstance(controls, dict)
+        or not controls
+        or any(
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(c not in "0123456789abcdef" for c in value)
+            for value in controls.values()
+        )
+    ):
+        raise ValueError("frozen manifest requires hidden control hashes")
+    if not Path(manifest.get("canonical_env_file", "")).is_absolute():
+        raise ValueError("canonical env-file path must be absolute")
+
+
+def sanitized_effective_configuration(settings: Any) -> dict[str, Any]:
+    """Explicit non-secret allowlist; never dump Settings or environment variables."""
+    from bluesec1_agent.recording import sanitize_endpoint
+    from bluesec1_client.remote.models import DeadlinePolicy, RetryPolicy
+
+    return {
+        "llm_base_url": sanitize_endpoint(settings.llm_base_url),
+        "runtime_endpoint": sanitize_endpoint(settings.scenario_runtime_endpoint),
+        "verify_tls": settings.scenario_runtime_verify_tls,
+        "arena": settings.scenario_runtime_arena,
+        "configured_default_model": settings.llm_default_model,
+        "max_llm_attempts": settings.llm_max_step_retries,
+        "max_completion_tokens": settings.llm_max_completion_tokens,
+        "llm_timeout_seconds": settings.llm_timeout_seconds,
+        "agent_name": settings.agent_name,
+        "run_label": settings.remote_run_label,
+        "sdk_retry_policy": RetryPolicy().model_dump(mode="json"),
+        "sdk_deadlines": DeadlinePolicy().model_dump(mode="json"),
+    }
+
+
+def verify_effective_configuration(expected: dict[str, Any], settings: Any) -> None:
+    """Refuse drift before any provider/runtime construction; values stay unprinted."""
+    actual = sanitized_effective_configuration(settings)
+    if expected != actual:
+        raise ValueError("effective configuration differs from frozen manifest")
 
 
 def compare_attempts(manifest: dict[str, Any], accounting: dict[str, Any]) -> dict[str, Any]:

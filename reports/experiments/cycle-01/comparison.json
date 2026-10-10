@@ -315,6 +315,6 @@
     "smoke_tasks_not_independent_after_prompt_tuning"
   ],
   "score_semantics": "TaskResult protobuf scores are nonoptional scalars (has_presence=false): absent wire and explicit zero cannot be distinguished. Canonical terminal JSON zero is retained; missing task_result or missing JSON score is unknown. No ListFields presence inference.",
-  "manifest_sha256": "e8284ea336f3a593e2233c83b36c89a8ad349d35f6a90d96537a7d2a54850d49",
+  "manifest_sha256": "539d6c48dc50e6701d531d407cec34509cf11cf7fa075449d01cbd8e9888e416",
   "integrated_sha": null
 }
