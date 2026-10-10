@@ -22,3 +22,20 @@ def test_budget_rejects_unbounded_or_invalid_deadlines(seconds):
 
     with pytest.raises(ValueError):
         Budget(seconds)
+
+
+def test_reserved_budget_uses_same_clock_and_leaves_parent_time():
+    from bluesec1_agent.budget import Budget, BudgetExceededError
+
+    now = [10.0]
+    budget = Budget(300, clock=lambda: now[0])
+    investigation = budget.with_reserve(90)
+    now[0] += 210
+    with pytest.raises(BudgetExceededError):
+        investigation.check()
+    assert budget.remaining_seconds() == 90
+    final_decision = budget.with_reserve(15)
+    now[0] += 75
+    with pytest.raises(BudgetExceededError):
+        final_decision.check()
+    assert budget.remaining_seconds() == 15

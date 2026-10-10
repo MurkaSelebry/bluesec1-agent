@@ -132,7 +132,7 @@ def test_v2_blocks_relation_id_sent_to_get_entity():
             benign(),
         ]
     )
-    result = asyncio.run(SimpleSGRAgent(llm, strategy="v2", max_steps=4).run(Client(session)))
+    result = asyncio.run(SimpleSGRAgent(llm, strategy="v2", max_steps=6).run(Client(session)))
     assert result.successful_tasks == 1
     assert [name for name, _ in session.calls] == [
         "get_entity",
@@ -141,20 +141,18 @@ def test_v2_blocks_relation_id_sent_to_get_entity():
     ]
 
 
-def test_deadline_cancels_model_wait_without_an_extra_abort():
+def test_model_stall_leaves_time_to_abort_a_known_active_task():
     class WaitingLLM:
         async def next_step(self, messages):
             await asyncio.Event().wait()
 
     session = Session()
-    with pytest.raises(TimeoutError):
-        asyncio.run(
-            SimpleSGRAgent(WaitingLLM(), strategy="v2", task_timeout_seconds=0.01).run(
-                Client(session)
-            )
-        )
+    result = asyncio.run(
+        SimpleSGRAgent(WaitingLLM(), strategy="v2", task_timeout_seconds=0.05).run(Client(session))
+    )
+    assert result.failed_tasks == 1
     assert session.calls == []
-    assert session.abort_count == 0
+    assert session.abort_count == 1
 
 
 def test_ambiguous_terminal_call_is_never_followed_by_abort():

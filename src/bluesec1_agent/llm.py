@@ -4,6 +4,7 @@ import math
 import random
 import re
 import time
+from copy import deepcopy
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from types import TracebackType
@@ -46,6 +47,17 @@ Return no prose, markdown, XML, comments, or keys outside the required object.
 
 REPAIR_INSTRUCTION = (
     "Your previous reply violated the required NextStep contract. " + STRUCTURED_OUTPUT_INSTRUCTION
+)
+
+FINISH_ONLY_RESPONSE_FORMAT = deepcopy(NEXT_STEP_RESPONSE_FORMAT)
+_finish_schema = FINISH_ONLY_RESPONSE_FORMAT["json_schema"]["schema"]
+_finish_schema["properties"]["function"] = {"$ref": "#/$defs/FinishInvestigationRequest"}
+_finish_schema["properties"]["task_completed"] = {"type": "boolean", "enum": [True]}
+FINISH_ONLY_INSTRUCTION = (
+    "The investigation is in finalization. Select only finish_investigation with "
+    "task_completed=true. Give a concise evidence-supported verdict and exact observed "
+    "citations. A time limit or missing findings is not evidence of benign activity. "
+    "Do not invent support to satisfy the deadline."
 )
 
 
@@ -101,6 +113,7 @@ class OpenAIStructuredStepClient:
         self.max_retries = min(max_retries, 3)
         self.timeout_seconds = min(timeout_seconds, 120.0)
         self.budget = budget
+        self.finish_only = False
         self._sink = (
             event_sink
             if isinstance(event_sink, SafeEventSink)
@@ -147,16 +160,17 @@ class OpenAIStructuredStepClient:
             NextStepRequestError: If every provider reply violates the schema.
         """
         request_messages = list(messages)
+        instruction = STRUCTURED_OUTPUT_INSTRUCTION
+        if self.finish_only:
+            instruction += "\n\n" + FINISH_ONLY_INSTRUCTION
         if request_messages and request_messages[0].get("role") == "system":
             first_message = dict(request_messages[0])
-            first_message["content"] = (
-                f"{first_message.get('content', '')}\n\n{STRUCTURED_OUTPUT_INSTRUCTION}"
-            )
+            first_message["content"] = f"{first_message.get('content', '')}\n\n{instruction}"
             request_messages[0] = first_message
         else:
             request_messages.insert(
                 0,
-                {"role": "system", "content": STRUCTURED_OUTPUT_INSTRUCTION},
+                {"role": "system", "content": instruction},
             )
         budget = self.budget or Budget(self.timeout_seconds * self.max_retries)
         last_category = "schema"
@@ -182,7 +196,12 @@ class OpenAIStructuredStepClient:
                     response = await self._client.chat.completions.create(
                         model=self.model,
                         messages=cast(list[ChatCompletionMessageParam], list(request_messages)),
-                        response_format=cast(ResponseFormatJSONSchema, NEXT_STEP_RESPONSE_FORMAT),
+                        response_format=cast(
+                            ResponseFormatJSONSchema,
+                            FINISH_ONLY_RESPONSE_FORMAT
+                            if self.finish_only
+                            else NEXT_STEP_RESPONSE_FORMAT,
+                        ),
                         max_completion_tokens=self.max_completion_tokens,
                         timeout=timeout,
                     )
@@ -203,6 +222,8 @@ class OpenAIStructuredStepClient:
                     step = parse_next_step_payload(raw_content)
                 except ValueError:
                     raise _ResponseFault("schema") from None
+                if self.finish_only and not isinstance(step.function, FinishInvestigationRequest):
+                    raise _ResponseFault("finalization_requires_finish")
                 outcome = "success"
                 return step
             except asyncio.CancelledError:
@@ -215,7 +236,11 @@ class OpenAIStructuredStepClient:
                     request_messages.extend(
                         [
                             {"role": "assistant", "content": raw_content or "<unusable reply>"},
-                            {"role": "user", "content": REPAIR_INSTRUCTION},
+                            {
+                                "role": "user",
+                                "content": REPAIR_INSTRUCTION
+                                + ("\n\n" + FINISH_ONLY_INSTRUCTION if self.finish_only else ""),
+                            },
                         ]
                     )
             except (TimeoutError, APITimeoutError):

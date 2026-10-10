@@ -114,7 +114,7 @@
     }
   ],
   "driver_limits": {
-    "max_steps": 6,
+    "max_steps": 8,
     "max_context_chars": 6000
   }
 }

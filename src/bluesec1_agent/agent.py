@@ -7,8 +7,10 @@ from typing import Any, Literal
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from bluesec1_agent.budget import Budget, BudgetExceededError
 from bluesec1_agent.catalog import CatalogCompatibilityError, check_catalog, validate_arguments
-from bluesec1_agent.llm import StructuredStepClient, render_json
+from bluesec1_agent.llm import NextStepRequestError, StructuredStepClient, render_json
+from bluesec1_agent.models import GetEntityRequest, GetRelationRequest
 from bluesec1_agent.recording import RunRecorder
 from bluesec1_client import (
     RemoteBenchmarkClient,
@@ -72,9 +74,13 @@ Use an evidence-driven investigation:
    and unresolved leads. Before finishing, check that cited ids and fields were seen,
    the verdict agrees with the evidence and the response scope is neither inflated nor
    missing known affected entities. Explain uncertainty without inventing evidence.
-6. Use the remaining_steps value to prioritize. Reserve the final step for
-   finish_investigation. When enough evidence supports a conclusion, submit it without
-   spending the remaining budget on redundant navigation.
+6. Use remaining_seconds, remaining_steps and phase to prioritize. Time for the final
+   decision and submission is reserved separately. In finalization select only
+   finish_investigation: give a concise supported verdict with exact observed citations
+   and acknowledge unresolved evidence. The deadline does not establish legitimacy.
+   When enough evidence supports a conclusion, submit without redundant navigation.
+   Use action_history to avoid revisiting successful reads. After repeated no progress,
+   follow an unseen high-priority frontier lead or submit a justified conclusion.
 """.strip()
 
 
@@ -166,13 +172,10 @@ class SimpleSGRAgent:
                 "task_started", task_id=session.task_id, observation=session.task.observation
             )
             self._update_context(task_id=session.task_id, step=None)
-            if hasattr(self.llm, "budget"):
-                from bluesec1_agent.budget import Budget
-
-                self.llm.budget = Budget(self.task_timeout_seconds)
+            budget = Budget(self.task_timeout_seconds)
             async with asyncio.timeout(self.task_timeout_seconds):
                 try:
-                    task_result = await self._investigate(session)
+                    task_result = await self._investigate(session, budget)
                 except Exception as exc:
                     self.last_error = exc
                     logger.error("Task {} failed: {}", session.task_id, type(exc).__name__)
@@ -188,6 +191,7 @@ class SimpleSGRAgent:
                     elif state != "active":
                         raise
                     else:
+                        budget.check()
                         error_message = f"Agent failed: {type(exc).__name__}. See local trace."
                         aborted_result = await session.abort_task(error_message=error_message)
                         task_result = TaskResult.model_validate(aborted_result)
@@ -220,7 +224,7 @@ class SimpleSGRAgent:
             task_results=task_results,
         )
 
-    async def _investigate(self, session: RemoteBenchmarkSession) -> TaskResult:
+    async def _investigate(self, session: RemoteBenchmarkSession, budget: Budget) -> TaskResult:
         """Drive one leased task until its terminal investigation tool succeeds.
 
         Args:
@@ -265,23 +269,76 @@ class SimpleSGRAgent:
 
         from bluesec1_agent.context import build_context
         from bluesec1_agent.evidence import EvidenceStore
+        from bluesec1_agent.frontier import rank_frontier
         from bluesec1_agent.provenance import validate_navigation, validate_submission
 
-        # Baseline uses the same passive evidence audit without changing its decisions.
+        # Baseline preserves passive evidence audit and transcript navigation.
         store = EvidenceStore()
         store.seed_observation(observation)
         initial_messages = list(messages)
         last_decision = None
         last_feedback: dict[str, Any] = {}
         previous_reads: dict[str, dict[str, Any]] = {}
+        action_history: list[dict[str, Any]] = []
+        no_progress_streak = 0
+        # Reserve two decision opportunities plus a terminal RPC. Both strategies
+        # share deadline safety; only v2 changes navigation/provenance policy.
+        finalization_reserve = min(255.0, self.task_timeout_seconds * 0.4)
+        terminal_reserve = min(15.0, self.task_timeout_seconds * 0.1)
+        investigation_budget = budget.with_reserve(finalization_reserve)
+        final_budget = budget.with_reserve(terminal_reserve)
+        finalizing = False
+        final_attempts = 0
+        remote_calls = 0
+        final_step_start = max(2, self.max_steps - 2) if self.max_steps > 1 else 1
         for step_index in range(1, self.max_steps + 1):
+            budget.check()
+            evidence_version_before = store.evidence_version
+            leads = [
+                lead
+                for lead in rank_frontier(store, trigger_ids=store.trigger_ids)
+                if ("get_entity" if lead.kind == "entity" else "get_relation") in available_tools
+                and not any(
+                    item["arguments"].get(f"{lead.kind}_id") == lead.object_id
+                    and item["outcome"] in {"ok", "cached"}
+                    for item in action_history
+                )
+                and sum(
+                    item["arguments"].get(f"{lead.kind}_id") == lead.object_id
+                    for item in action_history
+                )
+                < 2
+            ]
+            finalizing = finalizing or (
+                investigation_budget.remaining_seconds() <= 0
+                or step_index >= final_step_start
+                or (self.strategy == "v2" and no_progress_streak >= 2 and not leads)
+            )
+            if finalizing and final_attempts >= 3:
+                break
+            phase = "finalization" if finalizing else "investigate"
+            decision_budget = final_budget if finalizing else investigation_budget
+            decision_budget.check()
+            guidance = {
+                "remaining_steps": max(0, self.max_steps - step_index + 1),
+                "remaining_seconds": round(budget.remaining_seconds(), 3),
+                "decision_seconds": round(decision_budget.remaining_seconds(), 3),
+                "phase": phase,
+                "budget_guidance": (
+                    "Only finish_investigation is allowed. Submit concise supported reasoning; "
+                    "missing evidence or timeout never establishes a benign verdict."
+                    if finalizing
+                    else "Read the evidence needed for a supported conclusion before finalization."
+                ),
+            }
             self._update_context(task_id=session.task_id, step=step_index)
+            self._record("decision_phase", task_id=session.task_id, step=step_index, **guidance)
             if self.strategy == "v2":
                 evidence = build_context(
                     store,
                     trigger_ids=store.trigger_ids,
                     max_chars=self.max_context_chars,
-                    remaining_steps=self.max_steps - step_index + 1,
+                    remaining_steps=max(0, self.max_steps - step_index + 1),
                 )
                 messages = list(initial_messages)
                 if last_decision is not None:
@@ -293,7 +350,19 @@ class SimpleSGRAgent:
                             {
                                 "evidence": evidence,
                                 "feedback": last_feedback,
-                                "remaining_steps": self.max_steps - step_index + 1,
+                                **guidance,
+                                "action_history": {
+                                    "recent": action_history[-8:],
+                                    "earlier_actions": max(0, len(action_history) - 8),
+                                    "no_progress_streak": no_progress_streak,
+                                    "evidence_version": store.evidence_version,
+                                },
+                                "recovery": (
+                                    "Repeated actions added no evidence. Inspect an unread "
+                                    "frontier lead, or finish only if the evidence supports it."
+                                    if no_progress_streak >= 2
+                                    else None
+                                ),
                             }
                         ),
                     }
@@ -305,7 +374,97 @@ class SimpleSGRAgent:
                     context_chars=len(render_json(evidence)),
                     coverage=evidence.get("coverage"),
                 )
-            step = await self.llm.next_step(messages)
+            else:
+                messages[-1] = {
+                    "role": "user",
+                    "content": render_json({**json.loads(messages[-1]["content"]), **guidance}),
+                }
+            if hasattr(self.llm, "finish_only"):
+                self.llm.finish_only = finalizing
+            if finalizing:
+                final_attempts += 1
+            # Keep a second final decision possible after invalid citations or a
+            # provider stall. SDK retries must also fit this outer decision window.
+            decision_timeout = decision_budget.remaining_seconds()
+            if finalizing and final_attempts < 3:
+                decision_timeout /= 2
+                decision_budget = decision_budget.with_reserve(decision_timeout)
+            if hasattr(self.llm, "budget"):
+                self.llm.budget = decision_budget
+            try:
+                async with asyncio.timeout(decision_timeout):
+                    step = await self.llm.next_step(messages)
+            except (BudgetExceededError, TimeoutError):
+                if finalizing and final_budget.remaining_seconds() <= 0:
+                    raise BudgetExceededError("The final decision deadline was exceeded.") from None
+                finalizing = True
+                last_feedback = {
+                    "status": "error",
+                    "reason": "decision_time_reserved",
+                    "message": "The decision time window ended. Finalize from observed evidence.",
+                }
+                if self.strategy == "baseline":
+                    messages.append({"role": "user", "content": render_json(last_feedback)})
+                continue
+            except NextStepRequestError as error:
+                if not finalizing or error.category not in {
+                    "schema",
+                    "finalization_requires_finish",
+                    "truncated",
+                    "empty_response",
+                }:
+                    raise
+                last_feedback = {
+                    "status": "error",
+                    "reason": error.category,
+                    "message": "Repair the final submission using the observed evidence.",
+                }
+                if self.strategy == "baseline":
+                    messages.append({"role": "user", "content": render_json(last_feedback)})
+                continue
+
+            # A provider may return as its deadline elapses. Never start a new
+            # read using time reserved for finalization.
+            if not finalizing and investigation_budget.remaining_seconds() <= 0:
+                finalizing = True
+            proposed_step = step
+            proposed_tool = step.function.tool
+            if self.strategy == "v2" and no_progress_streak >= 2 and not finalizing:
+                proposed_arguments = step.function.model_dump(
+                    mode="json", by_alias=True, exclude={"tool", "reasoning"}, exclude_none=True
+                )
+                repeated = any(
+                    item["tool"] == proposed_tool and item["arguments"] == proposed_arguments
+                    for item in action_history
+                )
+                if repeated and proposed_tool != "finish_investigation":
+                    for lead in leads:
+                        recovery_tool = "get_entity" if lead.kind == "entity" else "get_relation"
+                        if recovery_tool not in available_tools:
+                            continue
+                        request_type = (
+                            GetEntityRequest if lead.kind == "entity" else GetRelationRequest
+                        )
+                        request = request_type.model_validate(
+                            {
+                                "tool": recovery_tool,
+                                f"{lead.kind}_id": lead.object_id,
+                                "reasoning": "Recover from repeated no-progress actions: "
+                                + lead.reason,
+                            }
+                        )
+                        step = step.model_copy(update={"function": request})
+                        self._record(
+                            "action_redirected",
+                            task_id=session.task_id,
+                            step=step_index,
+                            reason="repeated_no_progress",
+                            proposed_tool=proposed_tool,
+                            proposed_arguments=proposed_arguments,
+                            tool_name=recovery_tool,
+                            object_id=lead.object_id,
+                        )
+                        break
             tool_name = step.function.tool
             arguments = step.function.model_dump(
                 mode="json",
@@ -317,12 +476,12 @@ class SimpleSGRAgent:
                 "step_selected",
                 task_id=session.task_id,
                 step=step_index,
-                decision=step.model_dump(mode="json", by_alias=True),
+                decision=proposed_step.model_dump(mode="json", by_alias=True),
             )
             messages.append(
                 {
                     "role": "assistant",
-                    "content": step.model_dump_json(by_alias=True),
+                    "content": proposed_step.model_dump_json(by_alias=True),
                 }
             )
             call_key = render_json(
@@ -349,10 +508,10 @@ class SimpleSGRAgent:
                     ),
                 }
                 logger.warning("Rejected unavailable tool {} locally.", tool_name)
-            elif step_index == self.max_steps and tool_name != "finish_investigation":
+            elif finalizing and tool_name != "finish_investigation":
                 feedback = {
                     "status": "error",
-                    "message": "The final step is reserved for submission.",
+                    "message": "Finalization permits only finish_investigation.",
                 }
             elif schema_errors := validate_arguments(arguments, argument_schemas[tool_name]):
                 feedback = {
@@ -393,6 +552,9 @@ class SimpleSGRAgent:
                     "cache_hit", task_id=session.task_id, step=step_index, tool_name=tool_name
                 )
             else:
+                if remote_calls >= self.max_steps:
+                    raise RuntimeError("The remote tool-call budget was exhausted.")
+                remote_calls += 1
                 self._record(
                     "tool_call_started",
                     task_id=session.task_id,
@@ -401,7 +563,35 @@ class SimpleSGRAgent:
                     arguments=arguments,
                 )
                 try:
-                    response = await session.call_tool(tool_name, arguments)
+                    tool_budget = (
+                        budget if tool_name == "finish_investigation" else investigation_budget
+                    )
+                    tool_budget.check()
+                    async with asyncio.timeout(tool_budget.remaining_seconds()):
+                        response = await session.call_tool(tool_name, arguments)
+                except TimeoutError:
+                    self._record(
+                        "tool_call_finished",
+                        task_id=session.task_id,
+                        step=step_index,
+                        tool_name=tool_name,
+                        status="error",
+                        error_type="TimeoutError",
+                        terminal_state=getattr(session, "terminal_state", "unknown"),
+                    )
+                    if tool_name == "finish_investigation" or (
+                        getattr(session, "terminal_state", "active") != "active"
+                    ):
+                        raise
+                    finalizing = True
+                    last_feedback = {
+                        "status": "error",
+                        "reason": "read_time_reserved",
+                        "message": "The read exceeded investigation time; its result is unknown.",
+                    }
+                    if self.strategy == "baseline":
+                        messages.append({"role": "user", "content": render_json(last_feedback)})
+                    continue
                 except BaseException as error:
                     self._record(
                         "tool_call_finished",
@@ -466,12 +656,38 @@ class SimpleSGRAgent:
                 ):
                     previous_reads[call_key] = dict(feedback)
 
-            remaining = self.max_steps - step_index
+            outcome = (
+                "cached"
+                if feedback.get("cached")
+                else "ok"
+                if feedback.get("status") == "ok"
+                else "rejected_or_failed"
+            )
+            new_evidence = store.evidence_version > evidence_version_before
+            no_progress_streak = 0 if new_evidence else no_progress_streak + 1
+            if proposed_step is not step:
+                feedback["executed_action"] = {
+                    "tool": tool_name,
+                    "arguments": arguments,
+                    "reason": "Repeated no-progress proposal redirected to an unread lead.",
+                }
+            action_history.append(
+                {
+                    "step": step_index,
+                    "tool": tool_name,
+                    "arguments": {
+                        key: value for key, value in arguments.items() if key != "reasoning"
+                    },
+                    "outcome": outcome,
+                    "new_evidence": new_evidence,
+                }
+            )
+            remaining = max(0, self.max_steps - step_index)
             feedback["remaining_steps"] = remaining
             if remaining <= 5:
                 feedback["budget_guidance"] = (
                     "Prioritize unresolved evidence and submit finish_investigation before "
-                    "the budget ends. The last step is reserved for the final verdict."
+                    "the budget ends. The final decision slots are reserved for submission."
                 )
             messages.append(
                 {
@@ -480,7 +696,7 @@ class SimpleSGRAgent:
                 }
             )
             if self.strategy == "v2":
-                last_decision = step.model_dump_json(by_alias=True)
+                last_decision = proposed_step.model_dump_json(by_alias=True)
                 last_feedback = {key: value for key, value in feedback.items() if key != "result"}
                 if "result" in feedback:
                     preview = render_json(feedback["result"])

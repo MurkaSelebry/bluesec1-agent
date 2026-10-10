@@ -321,6 +321,7 @@ def test_trace_records_initial_evidence_actions_and_terminal_result(tmp_path: Pa
     ]
     assert [event["event"] for event in events] == [
         "task_started",
+        "decision_phase",
         "step_selected",
         "tool_call_started",
         "tool_result",
@@ -356,9 +357,12 @@ def test_incompatible_catalog_stops_before_llm_and_remote_action() -> None:
 
     session = IncompatibleSession()
     session.task.observation["available_tools"] = json.dumps(
-        [{"name": "finish_investigation", "parameters": {
-            "type": "object", "required": ["submission", "unknown_required"]
-        }}]
+        [
+            {
+                "name": "finish_investigation",
+                "parameters": {"type": "object", "required": ["submission", "unknown_required"]},
+            }
+        ]
     )
     llm = FakeStepClient([finish_step()])
     result = asyncio.run(SimpleSGRAgent(llm).run(cast(RemoteBenchmarkClient, FakeClient(session))))
