@@ -22,6 +22,173 @@ def graph():
     return store
 
 
+def pressure_graph(*, renamed=False, reverse=False):
+    """Generic 9-entity/10-edge read prefix with rich entities and host expansion."""
+    store = EvidenceStore()
+
+    def name(value):
+        return "opaque-" + value[::-1] if renamed else value
+
+    process, host, shared = map(name, ("process", "host", "shared"))
+    store.seed_observation(
+        {
+            "alert_text": {
+                "trigger_entities": [
+                    {"id": process, "type": "windows_process"},
+                    {"id": host, "type": "host"},
+                ],
+                "trigger_relations": [
+                    {"id": shared, "type": "hosts", "source_id": host, "target_id": process}
+                ],
+            }
+        }
+    )
+    entities = [
+        (process, "windows_process", [name(f"edge-{i}") for i in range(8)] + [shared]),
+        (host, "host", [name(f"broad-{i}") for i in range(25)] + [shared]),
+        *[(name(f"child-{i}"), "windows_process", [name(f"next-{i}")]) for i in range(7)],
+    ]
+    for step, (object_id, object_type, outgoing) in enumerate(
+        reversed(entities) if reverse else entities, start=1
+    ):
+        store.ingest(
+            step=step,
+            tool_name="get_entity",
+            arguments={"entity_id": object_id},
+            status="ok",
+            result={
+                "id": object_id,
+                "type": object_type,
+                "properties": {
+                    "signed": True,
+                    "cmdline": "synthetic executable --inspect",
+                    **{f"detail-{j}": "generic telemetry " * 70 for j in range(8)},
+                },
+                "relation_ids": {"outgoing": outgoing},
+            },
+        )
+    relation_numbers = list(range(10))
+    if reverse:
+        relation_numbers.reverse()
+    for i in relation_numbers:
+        store.ingest(
+            step=10 + i,
+            tool_name="get_relation",
+            arguments={"relation_id": name(f"edge-{i}")},
+            status="ok",
+            result={
+                "id": name(f"edge-{i}"),
+                "type": "parent_of",
+                "source_id": process if i < 8 else name("child-0"),
+                "target_id": name(f"child-{i % 7}"),
+                "properties": {"action": "created", "raw_detail": "x" * 2000},
+            },
+        )
+    return store, name
+
+
+@pytest.mark.parametrize("renamed,reverse", [(False, False), (True, False), (True, True)])
+def test_read_ledger_preserves_edge_identity_endpoints_and_sources_under_pressure(renamed, reverse):
+    store, name = pressure_graph(renamed=renamed, reverse=reverse)
+    before = store.snapshot(max_items=len(store))
+    context = build_context(
+        store, trigger_ids=store.trigger_ids, max_chars=24000, remaining_steps=20
+    )
+    ledger = {(item["kind"], item["object_id"]): item for item in context["read_ledger"]["items"]}
+    assert len(rendered(context)) <= 24000
+    assert context["read_ledger"]["omitted_count"] == 0
+    assert len(ledger) == 19
+    assert ("relation", name("shared")) not in ledger
+    for i in range(10):
+        item = ledger["relation", name(f"edge-{i}")]
+        assert item["state"] == "observed"
+        assert item["source_step"] == 10 + i
+        assert item["source_tool"] == "get_relation"
+        assert item["fields"]["type"] == "parent_of"
+        assert item["fields"]["source_id"] == name("process" if i < 8 else "child-0")
+        assert item["fields"]["target_id"] == name(f"child-{i % 7}")
+        assert item["fields"]["properties.action"] == "created"
+        assert "properties.raw_detail" not in item["fields"]
+        assert item["omitted_field_count"] >= 1
+    assert store.snapshot(max_items=len(store)) == before
+
+
+def test_typed_coverage_and_child_frontier_survive_host_expansion():
+    store, name = pressure_graph()
+    context = build_context(
+        store, trigger_ids=store.trigger_ids, max_chars=24000, remaining_steps=20
+    )
+    assert context["coverage"]["direct_trigger_unread"] == 26
+    assert context["coverage"]["process_direct_unread"] == 1
+    assert context["coverage"]["broad_trigger_unread"] == 26
+    assert context["coverage"]["alert_relation_unread"] == 1
+    assert context["coverage"]["active_neighbor_unread"] == 7
+    frontier_ids = [lead["object_id"] for lead in context["frontier"]["items"]]
+    assert all(name(f"next-{i}") in frontier_ids for i in range(7))
+    process = next(
+        item for item in context["evidence"]["items"] if item["object_id"] == name("process")
+    )
+    assert process["fields"]["properties.cmdline"] == "synthetic executable --inspect"
+    assert process["fields"]["properties.signed"] is True
+
+
+def test_read_ledger_does_not_promote_failed_referenced_or_unsupported_objects():
+    store = graph()
+    store.ingest(
+        step=4,
+        tool_name="get_relation",
+        arguments={"relation_id": "a-unread"},
+        result={"error": "timeout"},
+        status="error",
+    )
+    context = build_context(
+        store, trigger_ids=store.trigger_ids, max_chars=12000, remaining_steps=2
+    )
+    assert {item["object_id"] for item in context["read_ledger"]["items"]} == {
+        "trigger",
+        "r-user",
+        "user",
+    }
+
+
+def test_large_optional_relation_action_does_not_evict_read_identity():
+    store = EvidenceStore()
+    store.ingest(
+        step=1,
+        tool_name="get_relation",
+        arguments={"relation_id": "edge"},
+        status="ok",
+        result={
+            "id": "edge",
+            "type": "parent_of",
+            "source_id": "parent",
+            "target_id": "child",
+            "properties": {"action": "x" * 30000},
+        },
+    )
+    context = build_context(store, trigger_ids=("edge",), max_chars=4000, remaining_steps=2)
+    assert context["read_ledger"]["omitted_count"] == 0
+    item = context["read_ledger"]["items"][0]
+    assert item["fields"]["source_id"] == "parent"
+    assert item["fields"]["target_id"] == "child"
+    assert "properties.action" not in item["fields"]
+    assert item["omitted_field_count"] == 1
+    assert len(rendered(context)) <= 4000
+
+
+def test_rich_process_relation_details_share_context_with_entity_fields():
+    store, _ = pressure_graph()
+    context = build_context(
+        store, trigger_ids=store.trigger_ids, max_chars=24000, remaining_steps=20
+    )
+    assert any(
+        item["kind"] == "relation"
+        and item["state"] == "observed"
+        and item["fields"].get("properties.raw_detail") == "x" * 2000
+        for item in context["evidence"]["items"]
+    )
+
+
 def test_high_degree_context_is_bounded_and_every_reference_survives():
     store = EvidenceStore()
     ids = [f"relation-{i:03}" for i in range(500)]
@@ -124,7 +291,7 @@ def test_huge_untrusted_values_and_ids_cannot_exceed_context_budget():
         },
     )
     before = store.snapshot(max_items=100)
-    for limit in (1200, 2000, 24000):
+    for limit in (1000, 1200, 2000, 24000):
         context = build_context(store, trigger_ids=("p",), max_chars=limit, remaining_steps=2)
         assert len(rendered(context)) <= limit
         assert context["frontier"]["omitted_count"] == 1

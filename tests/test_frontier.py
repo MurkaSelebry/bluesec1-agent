@@ -101,3 +101,38 @@ def test_trigger_process_relations_precede_bulk_trigger_host_relations():
     leads = rank_frontier(store, trigger_ids=store.trigger_ids)
     assert [lead.object_id for lead in leads] == ["zzz-process-link", "aaa-host-link"]
     assert leads[0].priority < leads[1].priority
+
+
+def test_child_process_leads_precede_host_expansion_without_promoting_user_enumeration():
+    store = graph()
+    store.seed_observation({"alert_text": {"trigger_entities": [{"id": "host", "type": "host"}]}})
+    for object_id, object_type, outgoing in [
+        ("host", "host", ["aaa-host-link"]),
+        ("child", "windows_process", ["zzz-child-link"]),
+    ]:
+        store.ingest(
+            step=4,
+            tool_name="get_entity",
+            arguments={"entity_id": object_id},
+            status="ok",
+            result={
+                "id": object_id,
+                "type": object_type,
+                "properties": {},
+                "relation_ids": {"outgoing": outgoing},
+            },
+        )
+    store.ingest(
+        step=5,
+        tool_name="get_relation",
+        arguments={"relation_id": "a-unread"},
+        status="ok",
+        result={
+            "id": "a-unread",
+            "type": "parent_of",
+            "source_id": "trigger",
+            "target_id": "child",
+        },
+    )
+    ids = [lead.object_id for lead in rank_frontier(store, trigger_ids=store.trigger_ids)]
+    assert ids == ["z-unread", "zzz-child-link", "aaa-host-link", "bulk-1", "bulk-2"]

@@ -162,3 +162,26 @@ def test_explicit_ad_reference_has_separate_navigation_namespace():
     assert store.is_known_ad_id("ad-1")
     assert not store.is_known_ad_id("ad-2")
     assert not store.is_known("ad-1", "entity")
+
+
+def test_evidence_version_counts_new_observed_values_without_crediting_repeats_or_references():
+    store = EvidenceStore()
+    store.seed_observation({"alert_text": {"trigger_entities": [entity()]}})
+    assert store.evidence_version == 0
+    assert store.first_observed_step("process-1", "entity") is None
+    ingest(store, entity(signed=True), step=2)
+    assert store.evidence_version == 1
+    assert store.first_observed_step("process-1", "entity") == 2
+    ingest(store, entity(signed=True), step=3)
+    ingest(store, entity(signed=False), step=4, status="error")
+    assert store.evidence_version == 1
+    ingest(store, entity(signed=False), step=5)
+    assert store.evidence_version == 2
+    ingest(store, entity(signed=True), step=6)
+    assert store.evidence_version == 2
+    assert store.first_observed_step("process-1", "entity") == 2
+    assert store.first_observed_step("process-1", "relation") is None
+    assert store.get("process-1", "entity").source_step == 6
+    # JSON true and 1 carry different evidence types despite Python equality.
+    ingest(store, entity(signed=1), step=7)
+    assert store.evidence_version == 3

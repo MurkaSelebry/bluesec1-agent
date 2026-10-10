@@ -57,6 +57,7 @@ class EvidenceStore:
         self._triggers: dict[str, None] = {}
         self._adjacency: dict[str, set[str]] = {}
         self._ad_ids: set[str] = set()
+        self._evidence_version = 0
 
     def __len__(self) -> int:
         return len(self._history)
@@ -64,6 +65,25 @@ class EvidenceStore:
     @property
     def trigger_ids(self) -> tuple[str, ...]:
         return tuple(self._triggers)
+
+    @property
+    def evidence_version(self) -> int:
+        """Number of distinct successfully observed object values, across both namespaces.
+
+        References, failures and re-reading any previously observed value do not
+        advance this counter. Source history still retains repeated reads.
+        """
+        return self._evidence_version
+
+    def first_observed_step(self, object_id: str, kind: ObjectKind) -> int | None:
+        return next(
+            (
+                ref.source_step
+                for ref in self._history.get((kind, object_id), ())
+                if ref.state == "observed"
+            ),
+            None,
+        )
 
     @property
     def records(self) -> tuple[dict[str, Any], ...]:
@@ -118,6 +138,14 @@ class EvidenceStore:
             deepcopy(fields or {}),
         )
         versions = self._history.setdefault((kind, object_id), [])
+        if observed:
+            serialized = json.dumps(ref.fields, sort_keys=True, default=str)
+            if not any(
+                v.state == "observed"
+                and json.dumps(v.fields, sort_keys=True, default=str) == serialized
+                for v in versions
+            ):
+                self._evidence_version += 1
         if ref not in versions:
             versions.append(ref)
 
