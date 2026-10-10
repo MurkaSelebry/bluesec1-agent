@@ -227,3 +227,74 @@ class DeadlineSubmissionAgent(SimpleSGRAgent):
         self.provenance_checks.append(True)
         self._record("provenance_validated", task_id=session.task_id, step=2, valid=True)
         return TaskResult.model_validate(response.task_result)
+
+
+class SubmissionOnlyAgent(SimpleSGRAgent):
+    """Explicit incomplete baseline: no graph reads and no model invocation."""
+
+    async def _investigate(self, session: RemoteBenchmarkSession, budget: Budget) -> TaskResult:
+        schemas = check_catalog(self._tool_specs(session.task.observation))
+        if "finish_investigation" not in schemas:
+            raise CatalogCompatibilityError("The runtime did not advertise finish_investigation.")
+        request = FinishInvestigationRequest.model_validate(
+            {
+                "tool": "finish_investigation",
+                "submission": {
+                    "verdict": "malicious",
+                    "ir_artifacts": [],
+                    "reasoning": FALLBACK_REASON,
+                },
+            }
+        )
+        arguments = request.model_dump(mode="json", exclude={"tool"}, exclude_none=True)
+        if validate_arguments(arguments, schemas["finish_investigation"]) or validate_submission(
+            request.submission, EvidenceStore()
+        ):
+            raise CatalogCompatibilityError("Runtime does not accept the submission-only baseline.")
+        budget.check()
+        self._update_context(task_id=session.task_id, step=1)
+        self._record(
+            "deadline_fallback",
+            task_id=session.task_id,
+            reason="submission_only",
+            model_invoked=False,
+            submission=arguments["submission"],
+        )
+        self._record(
+            "tool_call_started",
+            task_id=session.task_id,
+            step=1,
+            tool_name="finish_investigation",
+            arguments=arguments,
+        )
+        try:
+            response = await session.call_tool("finish_investigation", arguments)
+        except BaseException as error:
+            self._record(
+                "tool_call_finished",
+                task_id=session.task_id,
+                step=1,
+                tool_name="finish_investigation",
+                status="error",
+                error_type=type(error).__name__,
+                terminal_state=getattr(session, "terminal_state", "unknown"),
+            )
+            raise
+        self._record(
+            "tool_result",
+            task_id=session.task_id,
+            step=1,
+            response=response.model_dump(mode="json"),
+        )
+        self._record(
+            "tool_call_finished",
+            task_id=session.task_id,
+            step=1,
+            tool_name="finish_investigation",
+            status=self._tool_feedback(response)["status"],
+        )
+        if response.task_result is None:
+            raise RuntimeError("Final submission returned no authoritative task result.")
+        self.provenance_checks.append(True)
+        self._record("provenance_validated", task_id=session.task_id, step=1, valid=True)
+        return TaskResult.model_validate(response.task_result)

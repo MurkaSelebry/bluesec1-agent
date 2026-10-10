@@ -67,3 +67,31 @@ def test_deadline_consumes_forty_synthetic_tasks():
     )
     assert result.successful_tasks == 40
     assert all(len(session.calls) == 2 and session.abort_count == 0 for session in queue.sessions)
+
+
+def test_submission_only_finishes_forty_tasks_without_model_or_graph_reads():
+    from bluesec1_agent.deadline import SubmissionOnlyAgent
+
+    class NoModel:
+        async def next_step(self, messages):
+            raise AssertionError("Submission-only mode must not call a model")
+
+    class Queue(Client):
+        def __init__(self):
+            super().__init__(None)
+            self.sessions = [Session() for _ in range(40)]
+            self.remaining = iter(self.sessions)
+
+        async def start_task(self):
+            return next(self.remaining, None)
+
+    queue = Queue()
+    result = asyncio.run(SubmissionOnlyAgent(NoModel(), max_tasks=40).run(queue))
+    assert result.successful_tasks == 40
+    assert all(
+        [name for name, _ in session.calls] == ["finish_investigation"]
+        for session in queue.sessions
+    )
+    assert all(
+        session.calls[0][1]["submission"]["ir_artifacts"] == [] for session in queue.sessions
+    )

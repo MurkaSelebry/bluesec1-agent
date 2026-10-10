@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from bluesec1_agent.agent import SYSTEM_PROMPT, AgentRunResult, SimpleSGRAgent
 from bluesec1_agent.catalog import CatalogCompatibilityError
-from bluesec1_agent.deadline import DEADLINE_PROMPT, DeadlineSubmissionAgent
+from bluesec1_agent.deadline import DEADLINE_PROMPT, DeadlineSubmissionAgent, SubmissionOnlyAgent
 from bluesec1_agent.llm import (
     FINISH_ONLY_RESPONSE_FORMAT,
     STRUCTURED_OUTPUT_INSTRUCTION,
@@ -55,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--deadline-submit",
         action="store_true",
         help="Opt in to bounded one-decision submission with an explicit incomplete fallback.",
+    )
+    parser.add_argument(
+        "--submission-only",
+        action="store_true",
+        help="Submit explicit incomplete baselines without model or graph calls.",
     )
     parser.add_argument("--strategy", choices=("baseline", "v2"), default=None)
     parser.add_argument("--task-timeout-seconds", type=_positive_float, default=None)
@@ -139,11 +144,12 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
     settings = _load_settings()
     repository = Path(__file__).resolve().parents[2]
     agent_name = args.agent_name or settings.agent_name
-    model = args.model or settings.llm_default_model
+    submission_only = getattr(args, "submission_only", False)
+    model = "deadline-baseline" if submission_only else args.model or settings.llm_default_model
     max_steps = args.max_steps if args.max_steps is not None else settings.agent_max_steps
     max_tasks = None if args.all_tasks else args.max_tasks
     strategy = args.strategy or settings.agent_strategy
-    deadline_submit = getattr(args, "deadline_submit", False)
+    deadline_submit = submission_only or getattr(args, "deadline_submit", False)
     task_timeout = args.task_timeout_seconds or (
         30.0 if deadline_submit else settings.task_timeout_seconds
     )
@@ -167,6 +173,8 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
         "model": model,
         "strategy": strategy,
         "deadline_submit": deadline_submit,
+        "submission_only": submission_only,
+        "model_invoked": False if submission_only else None,
         "max_tasks": max_tasks,
         "max_steps": max_steps,
         "task_timeout_seconds": task_timeout,
@@ -237,11 +245,11 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                     cleanup_timeout_seconds=cleanup_timeout,
                     **(
                         {
-                            "retry_policy": RetryPolicy(max_attempts=1),
+                            "retry_policy": RetryPolicy(max_attempts=2 if submission_only else 1),
                             "deadlines": DeadlinePolicy(
                                 create_run=15,
-                                lease_task=8,
-                                call_tool=8,
+                                lease_task=20 if submission_only else 8,
+                                call_tool=15 if submission_only else 8,
                                 abort_task=5,
                                 close_run=15,
                                 channel_close=5,
@@ -262,7 +270,13 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                         limits={"max_tasks": max_tasks, "max_steps": max_steps},
                         strategy=strategy,
                     )
-                    agent_type = DeadlineSubmissionAgent if deadline_submit else SimpleSGRAgent
+                    agent_type = (
+                        SubmissionOnlyAgent
+                        if submission_only
+                        else DeadlineSubmissionAgent
+                        if deadline_submit
+                        else SimpleSGRAgent
+                    )
                     agent = agent_type(
                         llm,
                         max_steps=max_steps,
