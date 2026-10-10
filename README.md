@@ -12,6 +12,9 @@ client as is.
 Последний graded-прогон завершён: 40/40 `TaskResult`, оценка на момент проверки
 скрыта; 22 ответа модели, 6 ответов координатора и 12 неполных fallback.
 
+Подробно по каждой задаче: [разбор всех 40 расследований](docs/reports/2026-10-10-quality-tasks.md)
+и [документ Word на 42 страницы](docs/reports/2026-10-10-quality-tasks.docx).
+
 ## Before you start
 
 You need Python 3.11 or newer, [uv](https://docs.astral.sh/uv/), and an
