@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "cycle_id": "cycle-01",
-  "freeze_state": "draft",
-  "integrated_sha": null,
+  "freeze_state": "frozen",
+  "integrated_sha": "5fbae284f1920dac7964d11d69e49b1c21646683",
   "baseline_strategy_sha": "a80ea600d9dc67075ed38945c5c6f62974b9aeec",
   "prepared_sha": "e29a16c4ae5b02d8f4d2e5247915210035d550fa",
   "source_fingerprints": {
@@ -13,11 +13,11 @@
     "scripts/run_experiments.py": "4b4bd10d616a3b3b79d4a4718136cd1cec3b81be660ecaa7b13cc7a0de05a335",
     "src/bluesec1_agent/__init__.py": "113e3ba1aae66d8bb36c246e11db063872a35f8063a4d73293495cf5ad02015f",
     "src/bluesec1_agent/__main__.py": "891484be4ea7e9cd6cd368bd823e1232489157eaa593cf1bbcb0a52c2c1a41d4",
-    "src/bluesec1_agent/agent.py": "71ac9d1192eeedd2c08298e9abbd08c466080f1dcca3092f7e0a4de4dbc57bcb",
+    "src/bluesec1_agent/agent.py": "dc55588d2dcdddb1901692829734f6b336f3e0de0f3ca63ffecffa376b2302a5",
     "src/bluesec1_agent/budget.py": "dc62c8d21825a12b6ed2a81da89e8fc56c4322d39e43283821b63c4b4447d516",
     "src/bluesec1_agent/catalog.py": "f6c85f9b6700e30245b16eba3735ef775e5c076a647148e1be58e5ef297d4c5a",
-    "src/bluesec1_agent/cli.py": "1ab2fa7572a9675633c61a4a9000f7fcd04ba101f68075f6459c166e98c75638",
-    "src/bluesec1_agent/context.py": "5402d9d05a432ef091a5422ae6ed96660389d0e0e956ad57686379942e46dc6a",
+    "src/bluesec1_agent/cli.py": "8cfa31efd407056441d547a4225b401314c74ebcd56d31da85fb5fb46884592c",
+    "src/bluesec1_agent/context.py": "4b7deae25f89ef4139e0b0e9b4fe77583f073195ec3af75ca4f45809f3578b7c",
     "src/bluesec1_agent/contracts.py": "1f4b79121cbb139f3dd6e4802f2ea2ddde5adf84b0847af744ae080f0826f5ba",
     "src/bluesec1_agent/evaluation.py": "b826640ac65679851cdcc4e404ac376cecdf1f304a5f8a57730286c612f1117c",
     "src/bluesec1_agent/evidence.py": "e0f8b215f48c8eb681de98366500e9add483dc4e6435d7b108a328acb2e8bfb8",
@@ -26,7 +26,7 @@
     "src/bluesec1_agent/models.py": "50920d9e72cc0c351e0892d7acf3b17a6d9ea5a95480307387c431b493a7e644",
     "src/bluesec1_agent/provenance.py": "b042b403e07e31dc99db97430b85b4ffa74c60ff5bda406e22c25ecebed7d980",
     "src/bluesec1_agent/recording.py": "cb0ed2839d8b962a1542d2b6c408da13cd0e972bee004fca9ae4a06029ed4371",
-    "src/bluesec1_agent/run_lock.py": "ca57dc6807c5b71a1f044cdc04bb7c1c7de43beab696cbd60b18e7e52e15b8ed",
+    "src/bluesec1_agent/run_lock.py": "0481b3e04797be344396f850727f1bb3407395bfd230ad1ef06af3c206e72e35",
     "src/bluesec1_agent/settings.py": "7ce49f318622e0762ec2801f4a0702b485f08fcc2cdb2e342f8b4ca9e70714f5",
     "src/bluesec1_client/__init__.py": "037a76668857bcbab4534929862715e94bca16249b51056584d963dc24df2a3e",
     "src/bluesec1_client/base.py": "2d548a784399f1a380141ed5d5a1ebd9994ee1789644577d1580a94a7e5e7f81",
@@ -40,8 +40,8 @@
     "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2_grpc.py": "85f04149d210fcdb349e407b01750d92a2f74f72efa0e4b516b971837dc1ac1a",
     "src/bluesec1_client/protocols.py": "4d0fc1adb811871c30aca7e24a625ad2f52029ea66d148b68ef8dc189373f102",
     "src/bluesec1_client/remote/__init__.py": "6c93b111b350906c63f814deac74987314bbff85d5075e1d06f09983b0fb26f3",
-    "src/bluesec1_client/remote/client.py": "f0512b4ea94141092184c3a44d53a0d7d2b413d7b86497f00a94aa6d63ba1df8",
-    "src/bluesec1_client/remote/errors.py": "d0a5a7db8682398cc455e4e097a0bc3fe1008761cc4eb14d75517f6d62dd2c50",
+    "src/bluesec1_client/remote/client.py": "f6fb1e7006e422ea92c47f6899ffe6f4dc5bdf5ec14f62ebb00f433fb28ff35c",
+    "src/bluesec1_client/remote/errors.py": "5a3f2e95570fa35164450715931ae66c1ae456e2546226ece97b7012aa155e0c",
     "src/bluesec1_client/remote/models.py": "c9d3f1a1e1f79399094fba19ff926f6185a4176952bd17020995641b21eacf36",
     "src/bluesec1_client/remote/session.py": "dd6fa652271d84413679bce89f9192734988785e2a63d27b77ba88f7a3e95b80",
     "src/bluesec1_client/remote/transport/__init__.py": "2a6d3076c6a6f53f66793403f0299367211801e1733ec4ee5c13f96e24c4f548",
@@ -50,7 +50,7 @@
     "src/bluesec1_client/remote/transport/mappers.py": "d8aa4cfd1daad36c0420edfe22a94bd4cab06320cf9e7bf9be340d7a468c7c02",
     "uv.lock": "95af6e710870808982e56dc9868fbf1694d668b74f1f9a2fd687cbf1618a1673"
   },
-  "configuration_sources": "CLI flags plus frozen sanitized runtime configuration",
+  "configuration_sources": "Effective Settings under canonical uv --env-file; CLI model/strategy/limits from each fixed slot.",
   "runtime_state_dir": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/goals/runtime-state",
   "run_artifacts_dir": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/runs/cycle-01",
   "limits": {
@@ -231,12 +231,91 @@
     "tests/fixtures/evaluation/11-lost-terminal/expected.json": "17d9e959cfd02799586002de40ea427e0f3fd239089c5034ca72e40cd4a6588e",
     "tests/fixtures/evaluation/11-lost-terminal/scenario.json": "c9960c92137d937673624250896865a6f0d5d9628ad8dc2ea394dde886696caf",
     "tests/fixtures/evaluation/12-incompatible-catalog/expected.json": "1e499c147a323acd5b7330c21a4d5a4fb3ca0ee9933b09c4abcc7e8685b45a87",
-    "tests/fixtures/evaluation/12-incompatible-catalog/scenario.json": "d3ac3a2d258ce91054e2b53e5b3b10171f28e44844efaaeaa75d90cf9f580729"
+    "tests/fixtures/evaluation/12-incompatible-catalog/scenario.json": "d3ac3a2d258ce91054e2b53e5b3b10171f28e44844efaaeaa75d90cf9f580729",
+    "tests/fixtures/evaluation/README.md": "a02bff1452d327bd4f39340b55e64c26aa651d991d3aa5000fe96337a76e485c",
+    "tests/fixtures/investigation/trigger_graph.json": "c65179c5aaf9e20901011f408358677db7fd52565ea049252b45ba44ca965224"
   },
   "versions": {
     "python": "3.14.7",
     "package": "bluesec1-agent 0.1.0",
     "dependency_versions": "uv.lock SHA256 in source_fingerprints"
   },
-  "canonical_env_file": "/Users/selebry/Documents/dev/pt/bluesec1-agent/.env"
+  "canonical_env_file": "/Users/selebry/Documents/dev/pt/bluesec1-agent/.env",
+  "frozen_at_utc": "2026-10-10T10:45:11.301526+00:00",
+  "hidden_control_hashes": {
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/01-malicious-normal-parent/scenario.json": "ed024a26226123d34469890f72d856459086b56f3cb467a0af8ba57ff1500f5f",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/01-malicious-normal-parent/expected.json": "78c2ac3063d67f98647f2c8bcb180c48e2c0333ec9a0ace13069375f0e7d04cb",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/02-authorized-admin/scenario.json": "7c7ba17f842bec7b188147eabec5b5d0450fa684dfbf99fcf66736052690827a",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/02-authorized-admin/expected.json": "a7a2f42710fe3e569fbf21fd5bb93041c30393ade99eb35d4f1915ff85974a7b",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/03-suspicious-name-only/scenario.json": "b233f38e8c9b61dd768d0f080494ce9466bb6750e3eb035e26ec3e03e7532d70",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/03-suspicious-name-only/expected.json": "eddea337c336788b1e695c3f743bc9accf8f50b4f3b73f25de8b6e6b51ce0c06",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/04-500-relations/scenario.json": "b5d3e3ed94d84bfb23a08018c3994bfb8766763f4d9b5b3eea8ee5cf15f172f2",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/04-500-relations/expected.json": "0890d65ebfa2a57b8dd46c55cd3731f85f311cdcf0a3d161aef69aa589ad5283",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/05-cycle/scenario.json": "4e4bb4510f5915ecc18ef59603c37d3cfef1912566a5aa09c468e5d266943172",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/05-cycle/expected.json": "b5dff24fbb458715fb705e3eca4432457cc00df3963b250dff2468156b1f44c6",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/06-swapped-id/scenario.json": "6348d4dde06c8c6517c34e55cd9b307d2169c60d90c04e63aad65dcd149c8ea7",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/06-swapped-id/expected.json": "d2cbad3b3d561ea773e31c3896150a7c62e1eb9f11f7a8c508e526cd1ac9e425",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/07-unobserved-field/scenario.json": "f361d05e1d5795b7cfc2c6fafae85000a059055d2f57a36628c4424b71aed26d",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/07-unobserved-field/expected.json": "1795f90c994748cfe50c9a572fdc98d438098f6cf0f51e1b38429ce9c87380b5",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/08-prompt-injection/scenario.json": "d25db18c201af80b50f6e91d52407c8aa43c898df282e450a0f9928c00f0a0ef",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/08-prompt-injection/expected.json": "ce4c29ee3c774f3253d017d9826f5c1d17249483f092035bc919b56b9fe805cd",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/09-tool-error/scenario.json": "a76b8213143190fee7a7ceb38207d2580b368d74ed03beb02454b85bdf8dd0ef",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/09-tool-error/expected.json": "30d25f1c3adfee583bd33378b5a007866a88bbb16c44541e31c268689c1a48f3",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/10-budget-before-final/scenario.json": "789611be08582662dc4471736599f4f47b74632595ccb794ad860e8f0aa63f9f",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/10-budget-before-final/expected.json": "d1093b9304681d10e1cdeb69133ea61fbcd39d71fc7faff08afa234833208d7f",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/11-lost-terminal/scenario.json": "4cce40964aa48fdac5c2569e8beffcf9f491d628ac70f2c9816054396fd14155",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/11-lost-terminal/expected.json": "17d9e959cfd02799586002de40ea427e0f3fd239089c5034ca72e40cd4a6588e",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/12-incompatible-catalog/scenario.json": "77a4962c05b5825758fe149f03b7471f7e0d87e29041d85fcc0699ca8b80d783",
+    "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/12-incompatible-catalog/expected.json": "1e499c147a323acd5b7330c21a4d5a4fb3ca0ee9933b09c4abcc7e8685b45a87"
+  },
+  "hidden_control_registry": {
+    "path": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-controls-20261010T104349Z/registry.json",
+    "sha256": "fbb9734a9a526ca717d5f9a294b2b0d2f524062615d56d58d576ba0771371581"
+  },
+  "hidden_control_report": {
+    "path": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/hidden-control-report-20261010T104349Z.json",
+    "sha256": "a28aba731c49977151e380d80006698f6a5489cf93174e5789fda21b5c22eae4",
+    "cases_passed": 12
+  },
+  "sanitized_configuration": {
+    "agent_name": "bluesec1-agent",
+    "arena": "graded",
+    "configured_default_model": "gpt-6-luna",
+    "llm_base_url": "https://fluxapi.shop/v1",
+    "llm_timeout_seconds": 120.0,
+    "max_completion_tokens": 16384,
+    "max_llm_attempts": 3,
+    "run_label": "bluesec1-agent",
+    "runtime_endpoint": "bluesec.team:443",
+    "sdk_deadlines": {
+      "abort_task": 15.0,
+      "call_tool": 60.0,
+      "channel_close": 5.0,
+      "close_run": 15.0,
+      "create_run": 60.0,
+      "lease_task": 30.0
+    },
+    "sdk_retry_policy": {
+      "backoff_multiplier": 2.0,
+      "initial_backoff_seconds": 0.25,
+      "max_attempts": 3,
+      "max_backoff_seconds": 2.0,
+      "max_retry_after_seconds": 30.0
+    },
+    "verify_tls": true
+  },
+  "sanitized_configuration_artifact": {
+    "path": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/effective-config-20261010T104349Z.json",
+    "sha256": "5bb618433f633852b47bd9f30554f117a992aaecd10d503c963004d1c7c27460"
+  },
+  "hidden_control_design": {
+    "generated_after_code_freeze": true,
+    "generation_source_sha": "5fbae284f1920dac7964d11d69e49b1c21646683",
+    "seed_sha256": "1b677f5e8ce2dc94c467711febdb1d03a2d6fffc041ea2efc2e6a3e1fd16818b",
+    "generator_sha256": "94efeb0d5d8a74186b6c220dd01c3c351ba7c1dc6c81b894ea80ab843cd2b208",
+    "transformation": "identifier permutations and object ordering",
+    "model_accuracy_evaluated": false,
+    "reused_development_invariants": true,
+    "expectations_excluded_from_step_client": true
+  }
 }
