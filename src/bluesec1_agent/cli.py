@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -36,6 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent-name", help="Override AGENT_NAME.")
     parser.add_argument("--arena", help="Override SCENARIO_RUNTIME_ARENA.")
     parser.add_argument("--model", help="Override LLM_DEFAULT_MODEL.")
+    parser.add_argument("--strategy", choices=("baseline", "v2"), default=None)
+    parser.add_argument("--task-timeout-seconds", type=_positive_float, default=None)
+    parser.add_argument("--cleanup-timeout-seconds", type=_positive_float, default=None)
+    parser.add_argument("--max-context-chars", type=_positive_int, default=None)
+    parser.add_argument("--runtime-state-dir", type=Path, default=None)
     task_limit = parser.add_mutually_exclusive_group()
     task_limit.add_argument(
         "--max-tasks",
@@ -194,6 +200,16 @@ def _positive_int(value: str) -> int:
         raise argparse.ArgumentTypeError("must be a positive integer") from error
     if parsed < 1:
         raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _positive_float(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a positive finite number") from error
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive finite number")
     return parsed
 
 

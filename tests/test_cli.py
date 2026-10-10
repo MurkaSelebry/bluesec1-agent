@@ -69,6 +69,26 @@ def test_parser_defaults_to_one_task_and_requires_explicit_full_queue() -> None:
     assert exit_info.value.code == 2
 
 
+def test_parser_selects_baseline_or_v2_with_bounded_execution(tmp_path: Path) -> None:
+    args = cli.build_parser().parse_args([
+        "--strategy", "baseline", "--task-timeout-seconds", "900",
+        "--cleanup-timeout-seconds", "30", "--max-context-chars", "24000",
+        "--runtime-state-dir", str(tmp_path),
+    ])
+    assert args.strategy == "baseline"
+    assert args.task_timeout_seconds == 900
+    assert args.cleanup_timeout_seconds == 30
+    assert args.max_context_chars == 24000
+    assert args.runtime_state_dir == tmp_path
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "text"])
+def test_task_deadline_must_be_finite_and_positive(value: str) -> None:
+    with pytest.raises(SystemExit) as error:
+        cli.build_parser().parse_args(["--task-timeout-seconds", value])
+    assert error.value.code == 2
+
+
 @pytest.mark.parametrize(
     ("task_args", "expected_max_tasks", "step_args", "expected_max_steps"),
     [
