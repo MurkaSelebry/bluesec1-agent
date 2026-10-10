@@ -112,6 +112,8 @@ def _error_category(error: BaseException | None) -> str | None:
         return "unknown_run_state"
     if isinstance(error, (RemoteAuthenticationError, RemoteAuthorizationError)):
         return "auth"
+    if isinstance(error, RunCapacityExceededError):
+        return "capacity"
     if isinstance(error, CatalogCompatibilityError):
         return "schema"
     if isinstance(error, NextStepRequestError):
@@ -283,6 +285,7 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
             cleanup=cleanup_payload,
             metadata=metadata,
             error_type=type(failure).__name__ if failure is not None else None,
+            run_creation_rejected=getattr(client, "run_creation_rejected", False),
         )
         sink.record("run_finished", status=payload["status"], cleanup=cleanup_payload)
         sink.write_result(payload)
