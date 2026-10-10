@@ -187,8 +187,16 @@ def test_quality_consumes_forty_tasks_with_one_terminal_call_each():
     assert all(sum(n == "finish_investigation" for n, _ in s.calls) == 1 for s in queue.sessions)
 
 
-def test_quality_lease_has_twenty_seconds_without_extending_terminal_deadline(
-    monkeypatch, tmp_path
+@pytest.mark.parametrize(
+    "mode,lease_seconds,call_seconds,attempts",
+    [
+        ("--quality-submit", 20, 8, 1),
+        ("--deadline-submit", 8, 8, 1),
+        ("--submission-only", 20, 15, 2),
+    ],
+)
+def test_submission_modes_keep_separate_transport_limits(
+    monkeypatch, tmp_path, mode, lease_seconds, call_seconds, attempts
 ):
     from test_cli import _settings
 
@@ -213,7 +221,7 @@ def test_quality_lease_has_twenty_seconds_without_extending_terminal_deadline(
     monkeypatch.setattr(cli, "OpenAIStructuredStepClient", LLM)
     monkeypatch.setattr(cli, "RemoteBenchmarkClient", client)
     argv = [
-        "--quality-submit",
+        mode,
         "--quality-deadline",
         "2099-01-01T00:00:00Z",
         "--runtime-state-dir",
@@ -223,9 +231,25 @@ def test_quality_lease_has_twenty_seconds_without_extending_terminal_deadline(
     ]
     with pytest.raises(RuntimeError, match="offline constructor stop"):
         asyncio.run(cli.run(cli.build_parser().parse_args(argv)))
-    assert captured["deadlines"].lease_task == 20
-    assert captured["deadlines"].call_tool == 8
-    assert captured["retry_policy"].max_attempts == 1
+    assert captured["deadlines"].lease_task == lease_seconds
+    assert captured["deadlines"].call_tool == call_seconds
+    assert captured["retry_policy"].max_attempts == attempts
+    if mode == "--submission-only":
+        assert captured["model_name"] == "deadline-baseline"
+
+
+@pytest.mark.parametrize(
+    "modes",
+    [
+        ["--quality-submit", "--submission-only"],
+        ["--quality-submit", "--deadline-submit"],
+        ["--submission-only", "--deadline-submit"],
+    ],
+)
+def test_incompatible_submission_modes_fail_before_start(modes):
+    with pytest.raises(SystemExit) as error:
+        cli.build_parser().parse_args(modes)
+    assert error.value.code == 2
 
 
 def test_slow_lease_cannot_borrow_global_cleanup_reserve():
