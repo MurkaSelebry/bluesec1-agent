@@ -179,3 +179,26 @@ def test_baseline_audits_provenance_without_changing_legacy_decisions():
     assert result.successful_tasks == 1
     assert agent.provenance_checks == [False]
     assert session.calls[0][0] == "finish_investigation"
+
+
+def test_terminal_timeout_preserves_unknown_outcome_for_cli():
+    class CancelledFinish(Session):
+        async def call_tool(self, tool_name, arguments):
+            if tool_name == "finish_investigation":
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    self.terminal_state = "unknown"
+                    raise
+            return await super().call_tool(tool_name, arguments)
+
+    session = CancelledFinish()
+    agent = SimpleSGRAgent(
+        ScriptedLLM([step("get_entity", entity_id="p1", reasoning="Inspect"), benign()]),
+        strategy="v2",
+        task_timeout_seconds=0.02,
+    )
+    with pytest.raises(TimeoutError):
+        asyncio.run(agent.run(Client(session)))
+    assert agent.remote_outcome_unknown is True
+    assert session.abort_count == 0

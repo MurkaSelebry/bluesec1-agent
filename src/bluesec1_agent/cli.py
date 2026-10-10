@@ -247,6 +247,8 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
         cleanup = getattr(client, "cleanup_outcome", None)
         cleanup_payload = asdict(cleanup) if cleanup is not None else None
         category = _error_category(failure or getattr(agent, "last_error", None))
+        if getattr(agent, "remote_outcome_unknown", False):
+            category = "unknown_run_state"
         if cleanup is not None and (
             cleanup.status in {"unknown", "closing_acknowledged"}
             or (cleanup.status == "failed" and cleanup.run_id is not None)

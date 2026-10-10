@@ -7,7 +7,7 @@ from typing import Any, Literal
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
-from bluesec1_agent.catalog import check_catalog, validate_arguments
+from bluesec1_agent.catalog import CatalogCompatibilityError, check_catalog, validate_arguments
 from bluesec1_agent.llm import StructuredStepClient, render_json
 from bluesec1_agent.recording import RunRecorder
 from bluesec1_client import (
@@ -134,6 +134,7 @@ class SimpleSGRAgent:
         self.task_results: list[TaskResult] = []
         self.last_error: BaseException | None = None
         self.provenance_checks: list[bool] = []
+        self.remote_outcome_unknown = False
 
     async def run(self, client: RemoteBenchmarkClient) -> AgentRunResult:
         """Consume the remote queue and aggregate authoritative task results.
@@ -154,6 +155,7 @@ class SimpleSGRAgent:
         self.task_results = []
         self.last_error = None
         self.provenance_checks = []
+        self.remote_outcome_unknown = False
         task_results = self.task_results
         while self.max_tasks is None or len(task_results) < self.max_tasks:
             session = await client.start_task()
@@ -189,6 +191,9 @@ class SimpleSGRAgent:
                         error_message = f"Agent failed: {type(exc).__name__}. See local trace."
                         aborted_result = await session.abort_task(error_message=error_message)
                         task_result = TaskResult.model_validate(aborted_result)
+                finally:
+                    if getattr(session, "terminal_state", "active") == "unknown":
+                        self.remote_outcome_unknown = True
             task_results.append(task_result)
             self._record(
                 "task_finished",
@@ -237,7 +242,7 @@ class SimpleSGRAgent:
             if isinstance(specification.get("name"), str)
         }
         if "finish_investigation" not in available_tools:
-            raise ValueError("The runtime did not advertise finish_investigation.")
+            raise CatalogCompatibilityError("The runtime did not advertise finish_investigation.")
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -507,15 +512,17 @@ class SimpleSGRAgent:
         """
         raw_tool_specs = observation.get("available_tools")
         if not isinstance(raw_tool_specs, str):
-            raise ValueError("Observation has no JSON-encoded available_tools field.")
+            raise CatalogCompatibilityError(
+                "Observation has no JSON-encoded available_tools field."
+            )
         try:
             tool_specs = json.loads(raw_tool_specs)
         except json.JSONDecodeError as exc:
-            raise ValueError("available_tools is not valid JSON.") from exc
+            raise CatalogCompatibilityError("available_tools is not valid JSON.") from exc
         if not isinstance(tool_specs, list) or not all(
             isinstance(specification, dict) for specification in tool_specs
         ):
-            raise ValueError("available_tools must encode a list of tool specifications.")
+            raise CatalogCompatibilityError("available_tools must encode a list of tool specs.")
         return [dict(specification) for specification in tool_specs]
 
     @staticmethod
