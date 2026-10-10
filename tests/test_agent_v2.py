@@ -192,13 +192,25 @@ def test_terminal_timeout_preserves_unknown_outcome_for_cli():
                     raise
             return await super().call_tool(tool_name, arguments)
 
+    events = []
+
+    class Sink:
+        def record(self, event, **payload):
+            events.append((event, payload))
+
     session = CancelledFinish()
     agent = SimpleSGRAgent(
         ScriptedLLM([step("get_entity", entity_id="p1", reasoning="Inspect"), benign()]),
         strategy="v2",
         task_timeout_seconds=0.02,
+        recorder=Sink(),
     )
     with pytest.raises(TimeoutError):
         asyncio.run(agent.run(Client(session)))
     assert agent.remote_outcome_unknown is True
     assert session.abort_count == 0
+    finished = [payload for event, payload in events if event == "tool_call_finished"]
+    assert len(finished) == 2
+    assert finished[-1]["error_type"] == "CancelledError"
+    assert finished[-1]["terminal_state"] == "unknown"
+    assert finished[-1]["step"] == 2

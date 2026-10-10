@@ -400,7 +400,19 @@ class SimpleSGRAgent:
                     tool_name=tool_name,
                     arguments=arguments,
                 )
-                response = await session.call_tool(tool_name, arguments)
+                try:
+                    response = await session.call_tool(tool_name, arguments)
+                except BaseException as error:
+                    self._record(
+                        "tool_call_finished",
+                        task_id=session.task_id,
+                        step=step_index,
+                        tool_name=tool_name,
+                        status="error",
+                        error_type=type(error).__name__,
+                        terminal_state=getattr(session, "terminal_state", "unknown"),
+                    )
+                    raise
                 feedback = self._tool_feedback(response)
                 logger.info(
                     "Tool {} returned status {}.",
