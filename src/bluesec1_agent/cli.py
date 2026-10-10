@@ -13,7 +13,9 @@ from pydantic import ValidationError
 
 from bluesec1_agent.agent import SYSTEM_PROMPT, AgentRunResult, SimpleSGRAgent
 from bluesec1_agent.catalog import CatalogCompatibilityError
+from bluesec1_agent.deadline import DEADLINE_PROMPT, DeadlineSubmissionAgent
 from bluesec1_agent.llm import (
+    FINISH_ONLY_RESPONSE_FORMAT,
     STRUCTURED_OUTPUT_INSTRUCTION,
     NextStepRequestError,
     OpenAIStructuredStepClient,
@@ -31,6 +33,7 @@ from bluesec1_client import (
     RunCapacityExceededError,
 )
 from bluesec1_client.remote.errors import RemoteAuthorizationError, RemoteOutcomeUnknownError
+from bluesec1_client.remote.models import DeadlinePolicy, RetryPolicy
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent-name", help="Override AGENT_NAME.")
     parser.add_argument("--arena", help="Override SCENARIO_RUNTIME_ARENA.")
     parser.add_argument("--model", help="Override LLM_DEFAULT_MODEL.")
+    parser.add_argument(
+        "--deadline-submit",
+        action="store_true",
+        help="Opt in to bounded one-decision submission with an explicit incomplete fallback.",
+    )
     parser.add_argument("--strategy", choices=("baseline", "v2"), default=None)
     parser.add_argument("--task-timeout-seconds", type=_positive_float, default=None)
     parser.add_argument("--cleanup-timeout-seconds", type=_positive_float, default=None)
@@ -135,7 +143,10 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
     max_steps = args.max_steps if args.max_steps is not None else settings.agent_max_steps
     max_tasks = None if args.all_tasks else args.max_tasks
     strategy = args.strategy or settings.agent_strategy
-    task_timeout = args.task_timeout_seconds or settings.task_timeout_seconds
+    deadline_submit = getattr(args, "deadline_submit", False)
+    task_timeout = args.task_timeout_seconds or (
+        30.0 if deadline_submit else settings.task_timeout_seconds
+    )
     cleanup_timeout = args.cleanup_timeout_seconds or settings.cleanup_timeout_seconds
     max_context = args.max_context_chars or settings.max_context_chars
     runtime_state = (
@@ -155,14 +166,15 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
     configuration = {
         "model": model,
         "strategy": strategy,
+        "deadline_submit": deadline_submit,
         "max_tasks": max_tasks,
         "max_steps": max_steps,
         "task_timeout_seconds": task_timeout,
         "cleanup_timeout_seconds": cleanup_timeout,
         "max_context_chars": max_context,
-        "max_llm_attempts": settings.llm_max_step_retries,
-        "llm_timeout_seconds": settings.llm_timeout_seconds,
-        "max_completion_tokens": settings.llm_max_completion_tokens,
+        "max_llm_attempts": 1 if deadline_submit else settings.llm_max_step_retries,
+        "llm_timeout_seconds": 8.0 if deadline_submit else settings.llm_timeout_seconds,
+        "max_completion_tokens": 1024 if deadline_submit else settings.llm_max_completion_tokens,
         "runtime_endpoint": args.endpoint or settings.scenario_runtime_endpoint,
         "arena": args.arena or settings.scenario_runtime_arena,
         "llm_base_url": settings.llm_base_url,
@@ -171,8 +183,10 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
     metadata = build_run_metadata(
         repository,
         configuration=configuration,
-        prompt=SYSTEM_PROMPT + "\n\n" + STRUCTURED_OUTPUT_INSTRUCTION,
-        schema=NEXT_STEP_RESPONSE_FORMAT,
+        prompt=(DEADLINE_PROMPT if deadline_submit else SYSTEM_PROMPT)
+        + "\n\n"
+        + STRUCTURED_OUTPUT_INSTRUCTION,
+        schema=FINISH_ONLY_RESPONSE_FORMAT if deadline_submit else NEXT_STEP_RESPONSE_FORMAT,
         secrets=secrets,
     )
     sink.record("run_prepared", metadata=metadata)
@@ -199,9 +213,9 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                 base_url=settings.llm_base_url,
                 api_key=llm_api_key,
                 model=model,
-                timeout_seconds=settings.llm_timeout_seconds,
-                max_completion_tokens=settings.llm_max_completion_tokens,
-                max_retries=settings.llm_max_step_retries,
+                timeout_seconds=configuration["llm_timeout_seconds"],
+                max_completion_tokens=configuration["max_completion_tokens"],
+                max_retries=configuration["max_llm_attempts"],
                 event_sink=sink,
             )
             # LLM enters first so constructor/entry failures still close its resources.
@@ -221,6 +235,21 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                     },
                     lifecycle_observer=observe,
                     cleanup_timeout_seconds=cleanup_timeout,
+                    **(
+                        {
+                            "retry_policy": RetryPolicy(max_attempts=1),
+                            "deadlines": DeadlinePolicy(
+                                create_run=15,
+                                lease_task=8,
+                                call_tool=8,
+                                abort_task=5,
+                                close_run=15,
+                                channel_close=5,
+                            ),
+                        }
+                        if deadline_submit
+                        else {}
+                    ),
                 )
                 async with client:
                     if client.run is None:
@@ -233,7 +262,8 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                         limits={"max_tasks": max_tasks, "max_steps": max_steps},
                         strategy=strategy,
                     )
-                    agent = SimpleSGRAgent(
+                    agent_type = DeadlineSubmissionAgent if deadline_submit else SimpleSGRAgent
+                    agent = agent_type(
                         llm,
                         max_steps=max_steps,
                         max_tasks=max_tasks,
