@@ -12,6 +12,7 @@ from bluesec1_client.proto.investigation.runtime.v1 import runtime_pb2
 from bluesec1_client.remote.errors import CompetitionClosedError, RemoteRateLimitError
 from bluesec1_client.remote.models import (
     CloseRunCommand,
+    CloseRunOutcome,
     CreateRunCommand,
     DynamicValueLimits,
     RemoteRun,
@@ -39,9 +40,10 @@ class FakeTransport:
         self.create_commands.append(command)
         return RemoteRun(run_id="run-1", state="active")
 
-    async def close_run(self, command: CloseRunCommand) -> None:
+    async def close_run(self, command: CloseRunCommand) -> CloseRunOutcome:
         """Record run closure."""
         self.close_commands.append(command)
+        return CloseRunOutcome(run_id=command.run_id, state="closed")
 
 
 def make_rpc_error(code: grpc.StatusCode, *, reason: str) -> grpc.aio.AioRpcError:
@@ -159,3 +161,57 @@ def test_competition_start_refusals_map_to_dedicated_client_errors() -> None:
     assert isinstance(closed, CompetitionClosedError)
     assert isinstance(limited, RemoteRateLimitError)
     assert limited.reason == "SUBJECT_RUN_START_RATE_LIMIT_REACHED"
+
+
+def test_real_sdk_retries_keep_logical_ids_through_client_and_session():
+    from bluesec1_client.remote.errors import RemoteOutcomeUnknownError
+    from bluesec1_client.remote.transport.grpc import GrpcRemoteTransport
+
+    class Stub:
+        def __init__(self):
+            self.creates, self.calls, self.closes = [], [], []
+
+        async def CreateRun(self, request, **kwargs):
+            self.creates.append(request.idempotency_key)
+            if len(self.creates) == 1:
+                raise make_rpc_error(grpc.StatusCode.UNAVAILABLE, reason="RUNTIME_UNAVAILABLE")
+            return runtime_pb2.Run(run_id="run-1", state=runtime_pb2.RUN_STATE_ACTIVE)
+
+        async def LeaseTask(self, request, **kwargs):
+            return runtime_pb2.LeaseTaskResponse(
+                leased=runtime_pb2.LeasedTask(
+                    run_id="run-1", task=runtime_pb2.PublicTask(task_id="task-1")
+                )
+            )
+
+        async def CallTool(self, request, **kwargs):
+            self.calls.append(request.call_id)
+            raise make_rpc_error(grpc.StatusCode.UNAVAILABLE, reason="RUNTIME_UNAVAILABLE")
+
+        async def CloseRun(self, request, **kwargs):
+            self.closes.append(request.idempotency_key)
+            if len(self.closes) == 1:
+                raise make_rpc_error(grpc.StatusCode.UNAVAILABLE, reason="RUNTIME_UNAVAILABLE")
+            return runtime_pb2.CloseRunResponse(run_id="run-1", state=runtime_pb2.RUN_STATE_CLOSING)
+
+    async def exercise():
+        stub = Stub()
+        transport = GrpcRemoteTransport(
+            endpoint="unused.invalid:443",
+            token="synthetic",
+            stub=stub,
+            retry_policy=RetryPolicy(initial_backoff_seconds=0, max_backoff_seconds=0),
+        )
+        client = RemoteBenchmarkClient(transport=transport)
+        async with client:
+            session = await client.start_task()
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.call_tool("finish_investigation", {})
+            with pytest.raises(RemoteOutcomeUnknownError):
+                await session.abort_task()
+        assert len(stub.creates) == 2 and len(set(stub.creates)) == 1
+        assert len(stub.calls) == 3 and len(set(stub.calls)) == 1
+        assert len(stub.closes) == 2 and len(set(stub.closes)) == 1
+        assert client.cleanup_outcome.status == "closing_acknowledged"
+
+    asyncio.run(exercise())

@@ -1,20 +1,28 @@
+import asyncio
 import json
+import math
+import random
 import re
 import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from types import TracebackType
 from typing import Any, Protocol, Self, cast
+from uuid import uuid4
 
-from loguru import logger
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from openai.types.shared_params import ResponseFormatJSONSchema
 from pydantic import ValidationError
 
+from bluesec1_agent.budget import Budget, BudgetExceededError
+from bluesec1_agent.contracts import EventSink
 from bluesec1_agent.models import (
     NEXT_STEP_RESPONSE_FORMAT,
     FinishInvestigationRequest,
     NextStep,
 )
+from bluesec1_agent.recording import SafeEventSink
 
 STRUCTURED_OUTPUT_INSTRUCTION = """
 Every assistant reply must be exactly one JSON object with these top-level fields:
@@ -66,6 +74,8 @@ class OpenAIStructuredStepClient:
         max_completion_tokens: int,
         max_retries: int,
         client: AsyncOpenAI | None = None,
+        event_sink: EventSink | None = None,
+        budget: Budget | None = None,
     ) -> None:
         """Initialize an OpenAI-compatible structured step generator.
 
@@ -75,12 +85,23 @@ class OpenAIStructuredStepClient:
             model: Provider model identifier.
             timeout_seconds: Timeout applied to each provider request.
             max_completion_tokens: Maximum generated tokens per attempt.
-            max_retries: Maximum schema-generation attempts per step.
+            max_retries: Total HTTP attempts per decision, including repairs, capped at three.
             client: Optional injected SDK client used by tests.
         """
         self.model = model
         self.max_completion_tokens = max_completion_tokens
-        self.max_retries = max_retries
+        if max_retries < 1:
+            raise ValueError("max_retries must allow at least one attempt")
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be finite and positive")
+        self.max_retries = min(max_retries, 3)
+        self.timeout_seconds = min(timeout_seconds, 120.0)
+        self.budget = budget
+        self._sink = (
+            event_sink
+            if isinstance(event_sink, SafeEventSink)
+            else SafeEventSink(event_sink, secrets=(api_key,))
+        )
         self._owns_client = client is None
         self._client = client or AsyncOpenAI(
             base_url=base_url,
@@ -88,6 +109,8 @@ class OpenAIStructuredStepClient:
             timeout=timeout_seconds,
             max_retries=0,
         )
+        if isinstance(self._client, AsyncOpenAI):
+            self._client = self._client.with_options(max_retries=0)
 
     async def __aenter__(self) -> Self:
         """Enter the async LLM client context."""
@@ -131,50 +154,152 @@ class OpenAIStructuredStepClient:
                 0,
                 {"role": "system", "content": STRUCTURED_OUTPUT_INSTRUCTION},
             )
-        last_error: Exception | None = None
-
+        budget = self.budget or Budget(self.timeout_seconds * self.max_retries)
+        last_category = "schema"
         for attempt in range(1, self.max_retries + 1):
-            started_at = time.perf_counter()
-            response = await self._client.chat.completions.create(
-                model=self.model,
-                messages=cast(list[ChatCompletionMessageParam], request_messages),
-                response_format=cast(ResponseFormatJSONSchema, NEXT_STEP_RESPONSE_FORMAT),
-                max_completion_tokens=self.max_completion_tokens,
+            budget.check()
+            attempt_id = uuid4().hex
+            started_at = time.monotonic()
+            response = None
+            category = None
+            outcome = "failed"
+            retryable = False
+            delay = 0.0
+            raw_content = ""
+            self._sink.record(
+                "llm_attempt_started",
+                attempt_id=attempt_id,
+                attempt=attempt,
+                requested_model=self.model,
             )
-            latency_ms = int((time.perf_counter() - started_at) * 1000)
-            raw_content = extract_raw_content(response)
-            total_tokens = response_total_tokens(response)
-
             try:
-                step = parse_next_step_payload(raw_content)
-            except ValueError as exc:
-                last_error = exc
-                logger.warning(
-                    "Invalid structured LLM response on attempt {}/{}: {}",
-                    attempt,
-                    self.max_retries,
-                    raw_content[:2000] or str(exc),
+                timeout = min(self.timeout_seconds, budget.remaining_seconds())
+                async with asyncio.timeout(timeout):
+                    response = await self._client.chat.completions.create(
+                        model=self.model,
+                        messages=cast(list[ChatCompletionMessageParam], list(request_messages)),
+                        response_format=cast(ResponseFormatJSONSchema, NEXT_STEP_RESPONSE_FORMAT),
+                        max_completion_tokens=self.max_completion_tokens,
+                        timeout=timeout,
+                    )
+                choices = getattr(response, "choices", None)
+                if not choices or getattr(choices[0], "message", None) is None:
+                    raise _ResponseFault("empty_response")
+                choice = choices[0]
+                if getattr(choice.message, "refusal", None):
+                    raise _ResponseFault("refusal", retryable=False)
+                if getattr(choice, "finish_reason", None) == "content_filter":
+                    raise _ResponseFault("refusal", retryable=False)
+                if getattr(choice, "finish_reason", None) == "length":
+                    raise _ResponseFault("truncated")
+                raw_content = extract_message_text(choice.message)
+                if not raw_content:
+                    raise _ResponseFault("empty_response")
+                try:
+                    step = parse_next_step_payload(raw_content)
+                except ValueError:
+                    raise _ResponseFault("schema") from None
+                outcome = "success"
+                return step
+            except asyncio.CancelledError:
+                outcome, category = "cancelled", "cancelled"
+                raise
+            except _ResponseFault as exc:
+                category, retryable = exc.category, exc.retryable
+                if retryable and attempt < self.max_retries:
+                    self._sink.record("schema_repair", attempt_id=attempt_id, error_type=category)
+                    request_messages.extend(
+                        [
+                            {"role": "assistant", "content": raw_content or "<unusable reply>"},
+                            {"role": "user", "content": REPAIR_INSTRUCTION},
+                        ]
+                    )
+            except (TimeoutError, APITimeoutError):
+                category, retryable = "timeout", True
+                delay = _backoff(attempt)
+            except APIConnectionError:
+                category, retryable = "transport", True
+                delay = _backoff(attempt)
+            except APIStatusError as exc:
+                category = f"http_{exc.status_code}"
+                retryable = exc.status_code == 429 or exc.status_code >= 500
+                delay = _retry_delay(exc, attempt)
+            except Exception:
+                category = "provider_error"
+                # Never forward provider text or request objects to console error paths.
+            finally:
+                self._sink.record(
+                    "llm_attempt_finished",
+                    attempt_id=attempt_id,
+                    attempt=attempt,
+                    requested_model=self.model,
+                    returned_model=getattr(response, "model", None),
+                    latency_ms=int((time.monotonic() - started_at) * 1000),
+                    outcome=outcome,
+                    error_type=category,
+                    **response_usage(response),
+                    finish_reason=_finish_reason(response),
                 )
-                if attempt == self.max_retries:
-                    break
-                request_messages.extend(
-                    [
-                        {"role": "assistant", "content": raw_content or "<empty>"},
-                        {"role": "user", "content": REPAIR_INSTRUCTION},
-                    ]
-                )
-                continue
+            last_category = category or "provider_error"
+            if not retryable or attempt == self.max_retries:
+                break
+            budget.check()
+            if delay >= budget.remaining_seconds():
+                raise BudgetExceededError("Insufficient task time for the next provider attempt.")
+            if delay:
+                await asyncio.sleep(delay)
+        raise NextStepRequestError(f"Structured decision failed ({last_category}).")
 
-            logger.info(
-                "LLM selected {} in {} ms using {} tokens.",
-                step.function.tool,
-                latency_ms,
-                total_tokens,
-            )
-            return step
 
-        message = str(last_error or ValueError("Unable to parse model response."))
-        raise NextStepRequestError(message) from last_error
+class _ResponseFault(ValueError):
+    def __init__(self, category: str, *, retryable: bool = True) -> None:
+        super().__init__(category)
+        self.category = category
+        self.retryable = retryable
+
+
+def _backoff(attempt: int) -> float:
+    return random.uniform(0.0, min(2.0, 0.25 * 2 ** (attempt - 1)))
+
+
+def _retry_delay(error: APIStatusError, attempt: int) -> float:
+    value = error.response.headers.get("retry-after")
+    if value:
+        try:
+            delay = float(value)
+        except ValueError:
+            try:
+                date = parsedate_to_datetime(value)
+                delay = (date - datetime.now(UTC)).total_seconds()
+            except (ValueError, TypeError, OverflowError):
+                delay = -1
+        if math.isfinite(delay) and delay >= 0:
+            return delay
+    return _backoff(attempt)
+
+
+def _finish_reason(response: Any) -> str | None:
+    choices = getattr(response, "choices", None)
+    return getattr(choices[0], "finish_reason", None) if choices else None
+
+
+def _token_count(value: Any) -> int | None:
+    return value if type(value) is int and value >= 0 else None
+
+
+def response_usage(response: Any) -> dict[str, int | None]:
+    usage = getattr(response, "usage", None)
+    return {
+        "prompt_tokens": _token_count(getattr(usage, "prompt_tokens", None)),
+        "completion_tokens": _token_count(getattr(usage, "completion_tokens", None)),
+        "total_tokens": _token_count(getattr(usage, "total_tokens", None)),
+        "cached_tokens": _token_count(
+            getattr(getattr(usage, "prompt_tokens_details", None), "cached_tokens", None)
+        ),
+        "reasoning_tokens": _token_count(
+            getattr(getattr(usage, "completion_tokens_details", None), "reasoning_tokens", None)
+        ),
+    }
 
 
 def extract_message_text(message: Any) -> str:
@@ -223,7 +348,7 @@ def extract_raw_content(response: Any) -> str:
 
     refusal = getattr(message, "refusal", None)
     if refusal:
-        raise ValueError(f"Model refused structured output: {refusal}")
+        raise ValueError("Model refused structured output.")
     return extract_message_text(message)
 
 
@@ -278,18 +403,9 @@ def parse_next_step_payload(raw_content: str) -> NextStep:
     return step
 
 
-def response_total_tokens(response: Any) -> int:
-    """Read total token usage when the provider supplies it.
-
-    Args:
-        response: OpenAI-compatible chat completion response.
-
-    Returns:
-        Non-negative total token count, or zero when unavailable.
-    """
-    usage = getattr(response, "usage", None)
-    total_tokens = getattr(usage, "total_tokens", 0)
-    return total_tokens if isinstance(total_tokens, int) and total_tokens >= 0 else 0
+def response_total_tokens(response: Any) -> int | None:
+    """Return reported usage; absence is unknown, never an invented zero."""
+    return response_usage(response)["total_tokens"]
 
 
 def render_json(value: Any) -> str:

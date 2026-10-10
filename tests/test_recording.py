@@ -79,3 +79,82 @@ def test_write_result_creates_pretty_utf8_json(tmp_path: Path) -> None:
     assert result_path.read_text(encoding="utf-8") == (
         '{\n  "verdict": "benign",\n  "summary": "Проверено",\n  "score": 0.75\n}\n'
     )
+
+
+def test_redacts_keys_event_names_and_exceptions(tmp_path):
+    recorder = RunRecorder(tmp_path, secrets=("synthetic-secret",))
+    recorder.record("synthetic-secret", **{"synthetic-secret": ValueError("synthetic-secret")})
+    raw = (recorder.directory / "trace.jsonl").read_text()
+    assert "synthetic-secret" not in raw
+    assert json.loads(raw)["schema_version"] == 2
+
+
+def test_safe_sink_preserves_original_error_and_reports_artifact_failure(tmp_path, capsys):
+    from bluesec1_agent.recording import SafeEventSink
+
+    recorder = RunRecorder(tmp_path, secrets=("synthetic-secret",))
+    sink = SafeEventSink(recorder, secrets=("synthetic-secret",))
+    sink.update_context(run_id="run-1", task_id="task-1", step=2)
+    trace = recorder.directory / "trace.jsonl"
+    trace.mkdir()  # a real write failure; no mock of recorder semantics
+    original = ValueError("original synthetic-secret")
+    try:
+        raise original
+    except ValueError as caught:
+        sink.record("task_error", error=caught)
+        assert caught is original
+    trace.rmdir()
+    sink.record("recovered")
+    sink.write_result({"status": "failed", "score": None})
+    events = read_trace(recorder.directory)
+    assert any(e["event"] == "artifact_error" for e in events)
+    assert events[-1]["payload"]["run_id"] == "run-1"
+    assert sink.artifact_errors
+    result = json.loads((recorder.directory / "result.json").read_text())
+    assert result["score"] is None
+    assert result["artifact_errors"]
+    assert "synthetic-secret" not in capsys.readouterr().err
+
+
+def test_safe_sink_writes_partial_result_if_result_target_is_unwritable(tmp_path):
+    from bluesec1_agent.recording import SafeEventSink
+
+    recorder = RunRecorder(tmp_path)
+    (recorder.directory / "result.json").mkdir()
+    sink = SafeEventSink(recorder)
+    sink.write_result({"status": "completed", "score": None})
+    partial = json.loads((recorder.directory / "partial-result.json").read_text())
+    assert partial["status"] == "completed"
+    assert partial["artifact_errors"]
+
+
+def test_run_metadata_hashes_source_and_sanitizes_configuration(tmp_path):
+    import hashlib
+    import subprocess
+
+    from bluesec1_agent.recording import build_run_metadata
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "src").mkdir()
+    source = tmp_path / "src" / "main.py"
+    source.write_text("print('source')\n")
+    (tmp_path / ".env").write_text("DO_NOT_READ=synthetic-secret")
+    metadata = build_run_metadata(
+        tmp_path,
+        configuration={
+            "api_key": "synthetic-secret",
+            "endpoint": "https://u:p@llm.invalid/v1?token=secret",
+            "max_steps": 60,
+            "nested": {"token": "synthetic-secret"},
+        },
+        prompt="prompt",
+        schema={"type": "object"},
+    )
+    assert "synthetic-secret" not in json.dumps(metadata)
+    assert metadata["configuration"]["endpoint"] == "https://llm.invalid/v1"
+    assert (
+        metadata["source_hashes"]["src/main.py"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    )
+    assert ".env" not in metadata["source_hashes"]
+    assert metadata["dirty"] is True
+    assert metadata["commit"] is None

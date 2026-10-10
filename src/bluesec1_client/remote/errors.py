@@ -81,3 +81,21 @@ class RemoteProtocolError(RemoteClientError):
 
 class RemoteServerError(RemoteClientError):
     """Raised for unexpected remote runtime failures."""
+
+
+class RemoteOutcomeUnknownError(RemoteClientError):
+    """A terminal RPC may have committed; do not issue a new finish or abort."""
+
+
+def is_definite_rejection(error: BaseException) -> bool:
+    """Only explicit rejection categories prove a mutation was not accepted."""
+    return isinstance(
+        error,
+        (
+            RemoteRequestError,
+            RemoteAuthenticationError,
+            RemoteAuthorizationError,
+            CompetitionClosedError,
+            RemoteRateLimitError,
+        ),
+    )
