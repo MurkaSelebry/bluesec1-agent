@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "case_id": "04-500-relations",
+  "synthetic_label": "unknown",
+  "entity_count": 501,
+  "relation_count": 500,
+  "invariants": [
+    "all_500_relation_references_retained",
+    "context_omissions_explicit"
+  ],
+  "official_score": null,
+  "usage": "Harness checks only; never pass this file to the investigating model."
+}

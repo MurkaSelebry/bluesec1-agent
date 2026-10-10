@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "case_id": "02-authorized-admin",
+  "synthetic_label": "benign",
+  "entity_count": 2,
+  "relation_count": 1,
+  "invariants": [
+    "legitimacy_fields_belong_to_cited_entity",
+    "positive_authorization_observed"
+  ],
+  "official_score": null,
+  "usage": "Harness checks only; never pass this file to the investigating model."
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "case_id": "05-cycle",
+  "description": "Two-node directed cycle terminates without repeated retrieval.",
+  "origin": {
+    "synthetic": true,
+    "partition": "development",
+    "author": "E",
+    "source": "cycle-01-plan-section-6",
+    "revision": 1
+  },
+  "observation": {
+    "alert_text": {
+      "trigger_entities": [
+        "trigger"
+      ]
+    }
+  },
+  "graph": {
+    "entities": [
+      {
+        "entity_id": "trigger",
+        "type": "windows_process",
+        "properties": {},
+        "relation_ids": {
+          "incoming": [
+            "edge-1"
+          ],
+          "outgoing": [
+            "edge-2"
+          ]
+        }
+      },
+      {
+        "entity_id": "neighbor",
+        "type": "windows_process",
+        "properties": {},
+        "relation_ids": {
+          "incoming": [
+            "edge-2"
+          ],
+          "outgoing": [
+            "edge-1"
+          ]
+        }
+      }
+    ],
+    "relations": [
+      {
+        "relation_id": "edge-1",
+        "type": "parent_of",
+        "source_id": "neighbor",
+        "target_id": "trigger",
+        "properties": {}
+      },
+      {
+        "relation_id": "edge-2",
+        "type": "parent_of",
+        "source_id": "trigger",
+        "target_id": "neighbor",
+        "properties": {}
+      }
+    ]
+  },
+  "faults": {
+    "tool_error": false,
+    "step_limit": 60,
+    "lost_terminal_response": false,
+    "unsupported_required_field": null
+  }
+}

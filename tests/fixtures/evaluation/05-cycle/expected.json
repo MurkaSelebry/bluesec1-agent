@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "case_id": "05-cycle",
+  "synthetic_label": "unknown",
+  "entity_count": 2,
+  "relation_count": 2,
+  "invariants": [
+    "cycles_do_not_expand_forever",
+    "reads_deduplicated"
+  ],
+  "official_score": null,
+  "usage": "Harness checks only; never pass this file to the investigating model."
+}

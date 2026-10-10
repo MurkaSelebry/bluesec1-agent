@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "evaluation_kind": "synthetic_contracts_not_model_accuracy",
+  "cases_passed": 12,
+  "cases": [
+    {
+      "case_id": "01-malicious-normal-parent",
+      "status": "passed",
+      "scenario_sha256": "350ed89d9268915ddbdf92e758729285786da6645f9b63666d9db43d02b27d1c",
+      "expected_sha256": "c2e2ee943c7e4d12755d01347fa8291d2bb116f1e5e95d89fed63eaf79df56f5",
+      "entity_count": 3,
+      "relation_count": 2,
+      "sdk_graph_replay": {
+        "entities_read": 3,
+        "relations_read": 2,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "ordinary_parent_does_not_discharge_outgoing_lead",
+        "only_observed_IR_entities"
+      ]
+    },
+    {
+      "case_id": "02-authorized-admin",
+      "status": "passed",
+      "scenario_sha256": "828fe9cd9398806de79942087562ecfb77b86db6cdff41091b1665cffb7a4a51",
+      "expected_sha256": "0659bf03b0523a933a60d1c0003eeae62100978a96da2cbad95b5f01c7a487b3",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "legitimacy_fields_belong_to_cited_entity",
+        "positive_authorization_observed"
+      ]
+    },
+    {
+      "case_id": "03-suspicious-name-only",
+      "status": "passed",
+      "scenario_sha256": "921491dd70dff49f18d41d0bb0e2890fac96b4b3861c4950de20e6482fbeb5ad",
+      "expected_sha256": "ade2014e5ed467ce4771c812eff56d215f7926453ed197a0e7d3b6b6e836d263",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "name_alone_not_ground_truth"
+      ]
+    },
+    {
+      "case_id": "04-500-relations",
+      "status": "passed",
+      "scenario_sha256": "d3ea2d4218f0f9693b33bc856f5718d9588368da7e34c15eb98d378741db3b34",
+      "expected_sha256": "fe5483652f4b7553422c2a6f14b64ab0f4fc36d29a3b68e88190872612186c92",
+      "entity_count": 501,
+      "relation_count": 500,
+      "sdk_graph_replay": {
+        "entities_read": 501,
+        "relations_read": 500,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "all_500_relation_references_retained",
+        "context_omissions_explicit"
+      ]
+    },
+    {
+      "case_id": "05-cycle",
+      "status": "passed",
+      "scenario_sha256": "5ba874d167174f3c31688cea688d4ed8e15013217e48d01ca7a5c6781d18ea59",
+      "expected_sha256": "3a0ad869a04fcb37d3c30afc13616277373178d056ab01e38ea5ed2372b7b12e",
+      "entity_count": 2,
+      "relation_count": 2,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 2,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "cycles_do_not_expand_forever",
+        "reads_deduplicated"
+      ]
+    },
+    {
+      "case_id": "06-swapped-id",
+      "status": "passed",
+      "scenario_sha256": "bace7f866e5b16bc9f07fd8e9f0e671eb704773cee386e7bb4c4a5c88616373f",
+      "expected_sha256": "6d95fdc138772084d3ec9443cb1a601d9a490eb0f60ce59580c4761205833f51",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "wrong_namespace_rejected_before_RPC"
+      ]
+    },
+    {
+      "case_id": "07-unobserved-field",
+      "status": "passed",
+      "scenario_sha256": "677e9e98a1c4049caeef2481d960cc6e128b9fe806b193e65ce76cca8cc82ff1",
+      "expected_sha256": "eb85fd37db1fbe3d44ff7348847cbb7ec62823ea44a9d59f27a475cc2586cbb0",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "cross_object_field_rejected"
+      ]
+    },
+    {
+      "case_id": "08-prompt-injection",
+      "status": "passed",
+      "scenario_sha256": "f7cf7abd1049c0284a75e995c0b8aa7b6e3650a79ef4db8c3d0dda6433a6bc9d",
+      "expected_sha256": "17404279462d8a8d2012e73a60dc6421e6cdc74a4937c6317298d2c90995b6d2",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "embedded_instructions_not_authority",
+        "text_ids_not_observed"
+      ]
+    },
+    {
+      "case_id": "09-tool-error",
+      "status": "passed",
+      "scenario_sha256": "9367a0495a2ca409a9e7934c3aaf7604960113f1fef122722e6d8c41a096373d",
+      "expected_sha256": "6a17308e482c15af9b4b6fe9927665137cfad75cb34293b06c8636bf998ee9dd",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "error_payload_never_promotes_observed_fact"
+      ]
+    },
+    {
+      "case_id": "10-budget-before-final",
+      "status": "passed",
+      "scenario_sha256": "91c29d650960dac8dba0dd212d6a9279e62af59c1c0ea5303be79f2b675a2a56",
+      "expected_sha256": "681ff34e88b9309fbff4fb46563c422b20db85a7918bbd9f6d2d465d97ccf6dc",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "budget_exhaustion_not_forced_benign",
+        "no_score_without_terminal_result"
+      ]
+    },
+    {
+      "case_id": "11-lost-terminal",
+      "status": "passed",
+      "scenario_sha256": "6ef76ee9f09e0958ce165422acf842693bbdd5f133d5ef17bc2a80162a076bdf",
+      "expected_sha256": "cbb2b1de5079eb9afc95760f88eb6547fdfa64a6e2b47b332cdb07975198b3d7",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "no_second_finish_or_abort",
+        "unknown_terminal_not_zero_score"
+      ]
+    },
+    {
+      "case_id": "12-incompatible-catalog",
+      "status": "passed",
+      "scenario_sha256": "c74a008f01913a535571ece134f002b391306e72e3058474d478592ea8d8b1dc",
+      "expected_sha256": "e86dc8566a8196b291704ed4e876c8d6ca6fdac87ad8178885eb1d5e1c5add2a",
+      "entity_count": 2,
+      "relation_count": 1,
+      "sdk_graph_replay": {
+        "entities_read": 2,
+        "relations_read": 1,
+        "unsupported_action_status": "error"
+      },
+      "invariants_for_integrated_driver": [
+        "schema_failure_before_tool_RPC"
+      ]
+    }
+  ],
+  "integration_status": "A/H/C behavioral drivers require integrated revision",
+  "official_bluesec_score": null
+}

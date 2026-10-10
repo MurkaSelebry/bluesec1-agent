@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "case_id": "01-malicious-normal-parent",
+  "description": "Explore direct outgoing activity despite ordinary parent.",
+  "origin": {
+    "synthetic": true,
+    "partition": "development",
+    "author": "E",
+    "source": "cycle-01-plan-section-6",
+    "revision": 1
+  },
+  "observation": {
+    "alert_text": {
+      "trigger_entities": [
+        "trigger"
+      ]
+    }
+  },
+  "graph": {
+    "entities": [
+      {
+        "entity_id": "trigger",
+        "type": "windows_process",
+        "properties": {
+          "process_name": "explorer.exe"
+        },
+        "relation_ids": {
+          "incoming": [
+            "edge-1"
+          ],
+          "outgoing": [
+            "edge-2"
+          ]
+        }
+      },
+      {
+        "entity_id": "neighbor",
+        "type": "windows_process",
+        "properties": {
+          "command_line": "synthetic credential dump"
+        },
+        "relation_ids": {
+          "incoming": [],
+          "outgoing": [
+            "edge-1"
+          ]
+        }
+      },
+      {
+        "entity_id": "payload",
+        "type": "windows_process",
+        "properties": {
+          "command_line": "synthetic dump --target lsass"
+        },
+        "relation_ids": {
+          "incoming": [
+            "edge-2"
+          ],
+          "outgoing": []
+        }
+      }
+    ],
+    "relations": [
+      {
+        "relation_id": "edge-1",
+        "type": "parent_of",
+        "source_id": "neighbor",
+        "target_id": "trigger",
+        "properties": {}
+      },
+      {
+        "relation_id": "edge-2",
+        "type": "win_process_create",
+        "source_id": "trigger",
+        "target_id": "payload",
+        "properties": {}
+      }
+    ]
+  },
+  "faults": {
+    "tool_error": false,
+    "step_limit": 60,
+    "lost_terminal_response": false,
+    "unsupported_required_field": null
+  }
+}

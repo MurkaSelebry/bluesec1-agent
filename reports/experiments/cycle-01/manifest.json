@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "cycle_id": "cycle-01",
+  "freeze_state": "draft",
+  "integrated_sha": null,
+  "baseline_strategy_sha": "a80ea600d9dc67075ed38945c5c6f62974b9aeec",
+  "prepared_sha": "e29a16c4ae5b02d8f4d2e5247915210035d550fa",
+  "source_fingerprints": {
+    "pyproject.toml": "1bcfc585fde595bf623c32bc6694e7d90ada35f25626ab7a3cf3254dd201a664",
+    "scripts/compare_runs.py": "e7014eb59f999afbf7852b2f32c1b1881c7ede58e79cf81cbcd8c02c9659dc14",
+    "scripts/eval_offline.py": "e0acacf61e2342af2084cf77a365a044d6c8ef547fe04da1fc2f0bfa79d56906",
+    "scripts/generate_remote_proto.py": "5a96a0dd8b0e59795cd441650b666ed6d3f9f1cf5a040e13dcf14779577111f0",
+    "scripts/run_experiments.py": "29780d264a0c4e66e57222fd617cf62b2f4cf6463c74ed2a4ace4867599d7ec5",
+    "src/bluesec1_agent/__init__.py": "113e3ba1aae66d8bb36c246e11db063872a35f8063a4d73293495cf5ad02015f",
+    "src/bluesec1_agent/__main__.py": "891484be4ea7e9cd6cd368bd823e1232489157eaa593cf1bbcb0a52c2c1a41d4",
+    "src/bluesec1_agent/agent.py": "18e515bc76a1bac8974f7fb6e69ede77717d39819c7754362438a8c9770e096d",
+    "src/bluesec1_agent/catalog.py": "5fa88b0dfe15257b20a81feacd1d6141fe26ca1d3e1db017ac615e2e06b4a96d",
+    "src/bluesec1_agent/cli.py": "6a09b4a87d4e72352eadcb44ce56b0e723dbdb67fb06f32d3dd0ac42e099f6a3",
+    "src/bluesec1_agent/contracts.py": "1f4b79121cbb139f3dd6e4802f2ea2ddde5adf84b0847af744ae080f0826f5ba",
+    "src/bluesec1_agent/evaluation.py": "b28c122e0a9e51fbb52056e45af7a3d9aa58a6b1cf725ba0fda298c7ea87da9d",
+    "src/bluesec1_agent/llm.py": "8c6d0b4a2246121d12122e1e0789f4c7e269642be7b44e57d4eb8337572be41e",
+    "src/bluesec1_agent/models.py": "50920d9e72cc0c351e0892d7acf3b17a6d9ea5a95480307387c431b493a7e644",
+    "src/bluesec1_agent/recording.py": "84254f8b1425990112e4ed70c651934f69f3ed0dca548f10223b27b336cad9ca",
+    "src/bluesec1_agent/settings.py": "4de0a187ece7ef171934e8017d17453c8acb328a38d23413e827c18be1ae299d",
+    "src/bluesec1_client/__init__.py": "037a76668857bcbab4534929862715e94bca16249b51056584d963dc24df2a3e",
+    "src/bluesec1_client/base.py": "2d548a784399f1a380141ed5d5a1ebd9994ee1789644577d1580a94a7e5e7f81",
+    "src/bluesec1_client/errors.py": "c8906a4c8a32e71b89f11eaac4f62c46fdefcb45fe6bfc5404022ba70b5a1a6f",
+    "src/bluesec1_client/proto/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/runtime/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2.py": "09cc150d06f6cca47ad65db2ae3469ed1563cea51a50f85c047b68919f4f85db",
+    "src/bluesec1_client/proto/investigation/runtime/v1/runtime_pb2_grpc.py": "85f04149d210fcdb349e407b01750d92a2f74f72efa0e4b516b971837dc1ac1a",
+    "src/bluesec1_client/protocols.py": "4d0fc1adb811871c30aca7e24a625ad2f52029ea66d148b68ef8dc189373f102",
+    "src/bluesec1_client/remote/__init__.py": "6c93b111b350906c63f814deac74987314bbff85d5075e1d06f09983b0fb26f3",
+    "src/bluesec1_client/remote/client.py": "ad3bbb82e32963148ce48fec5c731a140e0d5b5bfff7dc7ce0fc0dd0b4a2d391",
+    "src/bluesec1_client/remote/errors.py": "dd2b67c826a514a779cac962da15383143015db9fef368b653532142f9f6e4d0",
+    "src/bluesec1_client/remote/models.py": "c9d3f1a1e1f79399094fba19ff926f6185a4176952bd17020995641b21eacf36",
+    "src/bluesec1_client/remote/session.py": "48aeb860a23b118b2e9aee3690823fc78e1c4a412043dc9b555f910deea5207a",
+    "src/bluesec1_client/remote/transport/__init__.py": "2a6d3076c6a6f53f66793403f0299367211801e1733ec4ee5c13f96e24c4f548",
+    "src/bluesec1_client/remote/transport/base.py": "8cca364d2ec8d1f4beb66adb49fcd5aeedafb9b87a33cbf10ffed22754e5f45c",
+    "src/bluesec1_client/remote/transport/grpc.py": "aec6c5053685ae65a2debd014544f237e6a5bcd1ad1b2ac492aada40daf70769",
+    "src/bluesec1_client/remote/transport/mappers.py": "d8aa4cfd1daad36c0420edfe22a94bd4cab06320cf9e7bf9be340d7a468c7c02",
+    "uv.lock": "95af6e710870808982e56dc9868fbf1694d668b74f1f9a2fd687cbf1618a1673"
+  },
+  "configuration_sources": "CLI flags plus frozen sanitized runtime configuration",
+  "runtime_state_dir": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/goals/runtime-state",
+  "run_artifacts_dir": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/runs/cycle-01",
+  "limits": {
+    "max_attempts": 16,
+    "max_tasks": 1,
+    "max_steps": 60,
+    "task_timeout_seconds": 900,
+    "cleanup_timeout_seconds": 30,
+    "max_context_chars": 24000
+  },
+  "configurations": {
+    "gpt-6-luna-v2": {
+      "model": "gpt-6-luna",
+      "strategy": "v2"
+    },
+    "gpt-6-astra-v2": {
+      "model": "gpt-6-astra",
+      "strategy": "v2"
+    },
+    "claude-opus-5-5-v2": {
+      "model": "claude-opus-5-5",
+      "strategy": "v2"
+    },
+    "gpt-6.1-sol-v2": {
+      "model": "gpt-6.1-sol",
+      "strategy": "v2"
+    },
+    "gpt-6-luna-baseline": {
+      "model": "gpt-6-luna",
+      "strategy": "baseline"
+    }
+  },
+  "slots": [
+    {
+      "slot_id": "01",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "02",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "03",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "04",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "smoke"
+    },
+    {
+      "slot_id": "05",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "06",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "07",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "08",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "09",
+      "configuration_id": "gpt-6-luna-baseline",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "10",
+      "configuration_id": "gpt-6-luna-v2",
+      "phase": "behavior"
+    },
+    {
+      "slot_id": "11",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "12",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "13",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "14",
+      "configuration_id": "gpt-6-astra-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "15",
+      "configuration_id": "claude-opus-5-5-v2",
+      "phase": "strong_models"
+    },
+    {
+      "slot_id": "16",
+      "configuration_id": "gpt-6.1-sol-v2",
+      "phase": "strong_models"
+    }
+  ],
+  "stop_policy": [
+    "unknown_run_state",
+    "auth",
+    "schema",
+    "two_consecutive_infrastructure_failures"
+  ],
+  "selection_policy": {
+    "id": "cycle-01-conservative-v1",
+    "changes_default": false,
+    "min_accepted_with_quality": 3,
+    "requires_verified_provenance": true,
+    "requires_confirmed_cleanup": true,
+    "requires_no_open_p1_p2": true,
+    "ranking": [
+      "median_quality_desc",
+      "median_efficiency_desc_if_complete",
+      "median_walltime_asc"
+    ],
+    "incomplete_or_stopped_or_all_zero": "investigate_then_collect_more",
+    "tie": "no_preference"
+  },
+  "control_policy": {
+    "partition": "hidden_after_freeze",
+    "expected_never_in_model_input": true,
+    "modified_after_observation": "next_development_cycle"
+  },
+  "measurement": {
+    "design": "unpaired_small_sample",
+    "ground_truth_available": false,
+    "money_cost_requires_provider_tariff": true,
+    "all_attempts_count": true
+  },
+  "freeze_requirements": [
+    "integrated_sha",
+    "source_fingerprints",
+    "sanitized_configuration",
+    "hidden_control_hashes",
+    "R_review_exact_sha_and_manifest",
+    "C_live_gate"
+  ],
+  "attempts_path": "/Users/selebry/Documents/dev/pt/bluesec1-agent/reports/experiments/cycle-01/attempts.jsonl",
+  "fixture_fingerprints": {
+    "tests/fixtures/evaluation/01-malicious-normal-parent/expected.json": "c2e2ee943c7e4d12755d01347fa8291d2bb116f1e5e95d89fed63eaf79df56f5",
+    "tests/fixtures/evaluation/01-malicious-normal-parent/scenario.json": "350ed89d9268915ddbdf92e758729285786da6645f9b63666d9db43d02b27d1c",
+    "tests/fixtures/evaluation/02-authorized-admin/expected.json": "0659bf03b0523a933a60d1c0003eeae62100978a96da2cbad95b5f01c7a487b3",
+    "tests/fixtures/evaluation/02-authorized-admin/scenario.json": "828fe9cd9398806de79942087562ecfb77b86db6cdff41091b1665cffb7a4a51",
+    "tests/fixtures/evaluation/03-suspicious-name-only/expected.json": "ade2014e5ed467ce4771c812eff56d215f7926453ed197a0e7d3b6b6e836d263",
+    "tests/fixtures/evaluation/03-suspicious-name-only/scenario.json": "921491dd70dff49f18d41d0bb0e2890fac96b4b3861c4950de20e6482fbeb5ad",
+    "tests/fixtures/evaluation/04-500-relations/expected.json": "fe5483652f4b7553422c2a6f14b64ab0f4fc36d29a3b68e88190872612186c92",
+    "tests/fixtures/evaluation/04-500-relations/scenario.json": "d3ea2d4218f0f9693b33bc856f5718d9588368da7e34c15eb98d378741db3b34",
+    "tests/fixtures/evaluation/05-cycle/expected.json": "3a0ad869a04fcb37d3c30afc13616277373178d056ab01e38ea5ed2372b7b12e",
+    "tests/fixtures/evaluation/05-cycle/scenario.json": "5ba874d167174f3c31688cea688d4ed8e15013217e48d01ca7a5c6781d18ea59",
+    "tests/fixtures/evaluation/06-swapped-id/expected.json": "6d95fdc138772084d3ec9443cb1a601d9a490eb0f60ce59580c4761205833f51",
+    "tests/fixtures/evaluation/06-swapped-id/scenario.json": "bace7f866e5b16bc9f07fd8e9f0e671eb704773cee386e7bb4c4a5c88616373f",
+    "tests/fixtures/evaluation/07-unobserved-field/expected.json": "eb85fd37db1fbe3d44ff7348847cbb7ec62823ea44a9d59f27a475cc2586cbb0",
+    "tests/fixtures/evaluation/07-unobserved-field/scenario.json": "677e9e98a1c4049caeef2481d960cc6e128b9fe806b193e65ce76cca8cc82ff1",
+    "tests/fixtures/evaluation/08-prompt-injection/expected.json": "17404279462d8a8d2012e73a60dc6421e6cdc74a4937c6317298d2c90995b6d2",
+    "tests/fixtures/evaluation/08-prompt-injection/scenario.json": "f7cf7abd1049c0284a75e995c0b8aa7b6e3650a79ef4db8c3d0dda6433a6bc9d",
+    "tests/fixtures/evaluation/09-tool-error/expected.json": "6a17308e482c15af9b4b6fe9927665137cfad75cb34293b06c8636bf998ee9dd",
+    "tests/fixtures/evaluation/09-tool-error/scenario.json": "9367a0495a2ca409a9e7934c3aaf7604960113f1fef122722e6d8c41a096373d",
+    "tests/fixtures/evaluation/10-budget-before-final/expected.json": "681ff34e88b9309fbff4fb46563c422b20db85a7918bbd9f6d2d465d97ccf6dc",
+    "tests/fixtures/evaluation/10-budget-before-final/scenario.json": "91c29d650960dac8dba0dd212d6a9279e62af59c1c0ea5303be79f2b675a2a56",
+    "tests/fixtures/evaluation/11-lost-terminal/expected.json": "cbb2b1de5079eb9afc95760f88eb6547fdfa64a6e2b47b332cdb07975198b3d7",
+    "tests/fixtures/evaluation/11-lost-terminal/scenario.json": "6ef76ee9f09e0958ce165422acf842693bbdd5f133d5ef17bc2a80162a076bdf",
+    "tests/fixtures/evaluation/12-incompatible-catalog/expected.json": "e86dc8566a8196b291704ed4e876c8d6ca6fdac87ad8178885eb1d5e1c5add2a",
+    "tests/fixtures/evaluation/12-incompatible-catalog/scenario.json": "c74a008f01913a535571ece134f002b391306e72e3058474d478592ea8d8b1dc"
+  },
+  "versions": {
+    "python": "3.14.7",
+    "package": "bluesec1-agent 0.1.0",
+    "dependency_versions": "uv.lock SHA256 in source_fingerprints"
+  }
+}
