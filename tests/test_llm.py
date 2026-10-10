@@ -297,8 +297,9 @@ def test_format_faults_are_bounded_and_observed_without_usage(bad, category):
     from bluesec1_agent.llm import NextStepRequestError
 
     client, endpoint, sink = fault_client([bad] * 5)
-    with pytest.raises(NextStepRequestError):
+    with pytest.raises(NextStepRequestError) as error:
         asyncio.run(client.next_step([]))
+    assert error.value.category == category
     assert len(endpoint.requests) == 3
     starts = [p for event, p in sink.events if event == "llm_attempt_started"]
     ends = [p for event, p in sink.events if event == "llm_attempt_finished"]
@@ -316,6 +317,7 @@ def test_refusal_stops_without_retry_or_leaking_body():
         asyncio.run(client.next_step([]))
     assert len(endpoint.requests) == 1
     assert "synthetic-secret" not in str(error.value)
+    assert error.value.category == "refusal"
     assert sink.events[-1][1]["error_type"] == "refusal"
 
 
@@ -368,8 +370,9 @@ def test_real_sdk_http_retries_share_three_attempt_cap_with_repair(status, attem
                 client=sdk,
                 event_sink=sink,
             )
-            with pytest.raises(NextStepRequestError):
+            with pytest.raises(NextStepRequestError) as error:
                 await client.next_step([])
+            assert error.value.category == f"http_{status}"
             assert len([e for e, _ in sink.events if e == "llm_attempt_finished"]) == attempts
 
     asyncio.run(exercise())
@@ -599,3 +602,12 @@ def test_http_timeout_is_capped_and_expired_budget_starts_no_attempt(monkeypatch
     with pytest.raises(module.BudgetExceededError):
         asyncio.run(client.next_step([]))
     assert len(endpoint.requests) == 1
+
+
+def test_request_error_category_preserves_legacy_message_constructor():
+    from bluesec1_agent.llm import NextStepRequestError
+
+    error = NextStepRequestError("legacy diagnostic")
+    assert str(error) == "legacy diagnostic"
+    assert error.args == ("legacy diagnostic",)
+    assert error.category == "provider_error"

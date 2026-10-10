@@ -50,7 +50,11 @@ REPAIR_INSTRUCTION = (
 
 
 class NextStepRequestError(RuntimeError):
-    """Raised when an LLM cannot produce a valid structured step."""
+    """Raised when an LLM cannot produce a valid step, with a stable failure category."""
+
+    def __init__(self, message: str, *, category: str = "provider_error") -> None:
+        super().__init__(message)
+        self.category = category
 
 
 class StructuredStepClient(Protocol):
@@ -248,7 +252,9 @@ class OpenAIStructuredStepClient:
                 raise BudgetExceededError("Insufficient task time for the next provider attempt.")
             if delay:
                 await asyncio.sleep(delay)
-        raise NextStepRequestError(f"Structured decision failed ({last_category}).")
+        raise NextStepRequestError(
+            f"Structured decision failed ({last_category}).", category=last_category
+        )
 
 
 class _ResponseFault(ValueError):
