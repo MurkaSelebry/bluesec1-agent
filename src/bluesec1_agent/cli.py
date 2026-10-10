@@ -2,15 +2,25 @@ import argparse
 import asyncio
 import json
 import math
+import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import truststore
 from pydantic import ValidationError
 
-from bluesec1_agent.agent import AgentRunResult, SimpleSGRAgent
-from bluesec1_agent.llm import OpenAIStructuredStepClient
-from bluesec1_agent.recording import RunRecorder
+from bluesec1_agent.agent import SYSTEM_PROMPT, AgentRunResult, SimpleSGRAgent
+from bluesec1_agent.catalog import CatalogCompatibilityError
+from bluesec1_agent.llm import (
+    STRUCTURED_OUTPUT_INSTRUCTION,
+    NextStepRequestError,
+    OpenAIStructuredStepClient,
+)
+from bluesec1_agent.models import NEXT_STEP_RESPONSE_FORMAT
+from bluesec1_agent.recording import RunRecorder, SafeEventSink, build_run_metadata, redact
+from bluesec1_agent.run_lock import RunLock, RunLockError
 from bluesec1_agent.settings import Settings
 from bluesec1_client import (
     CompetitionClosedError,
@@ -20,6 +30,7 @@ from bluesec1_client import (
     RemoteUnavailableError,
     RunCapacityExceededError,
 )
+from bluesec1_client.remote.errors import RemoteAuthorizationError, RemoteOutcomeUnknownError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,74 +85,213 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def run(args: argparse.Namespace) -> AgentRunResult:
-    """Execute one new remote run and print its task results.
+def _runtime_state_directory(repository: Path) -> Path:
+    """All linked worktrees resolve to the same account run lock by default."""
+    try:
+        common = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(repository),
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-common-dir",
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return Path(common).parent / "reports" / "goals" / "runtime-state"
+    except (OSError, subprocess.CalledProcessError):
+        return repository / "reports" / "goals" / "runtime-state"
 
-    Args:
-        args: Parsed command-line arguments.
-    """
+
+def _error_category(error: BaseException | None) -> str | None:
+    if error is None:
+        return None
+    if isinstance(error, (RemoteOutcomeUnknownError, RunLockError)):
+        return "unknown_run_state"
+    if isinstance(error, (RemoteAuthenticationError, RemoteAuthorizationError)):
+        return "auth"
+    if isinstance(error, CatalogCompatibilityError):
+        return "schema"
+    if isinstance(error, NextStepRequestError):
+        category = getattr(error, "category", None)
+        if category in {"http_401", "http_403"}:
+            return "auth"
+        if category in {"schema", "truncated", "empty_response", "http_400"}:
+            return "schema"
+    return "infrastructure"
+
+
+async def run(args: argparse.Namespace) -> AgentRunResult:
+    """Run with shared durable ownership and record the received cleanup outcome."""
     truststore.inject_into_ssl()
     settings = _load_settings()
+    repository = Path(__file__).resolve().parents[2]
     agent_name = args.agent_name or settings.agent_name
     model = args.model or settings.llm_default_model
     max_steps = args.max_steps if args.max_steps is not None else settings.agent_max_steps
     max_tasks = None if args.all_tasks else args.max_tasks
+    strategy = args.strategy or settings.agent_strategy
+    task_timeout = args.task_timeout_seconds or settings.task_timeout_seconds
+    cleanup_timeout = args.cleanup_timeout_seconds or settings.cleanup_timeout_seconds
+    max_context = args.max_context_chars or settings.max_context_chars
+    runtime_state = (
+        args.runtime_state_dir or settings.runtime_state_dir or _runtime_state_directory(repository)
+    )
+    # Validate local controls before allocating any remote resources.
+    if max_context < 1000:
+        raise ValueError("max_context_chars must be at least 1000")
     runtime_token = args.token or settings.scenario_runtime_token.get_secret_value()
     llm_api_key = settings.llm_api_key.get_secret_value()
+    secrets = (runtime_token, llm_api_key)
     verify_tls = (
         settings.scenario_runtime_verify_tls if args.verify_tls is None else args.verify_tls
     )
-    recorder = RunRecorder(args.output_dir, secrets=(runtime_token, llm_api_key))
-
+    recorder = RunRecorder(args.output_dir, secrets=secrets)
+    sink = SafeEventSink(recorder, secrets=secrets)
+    configuration = {
+        "model": model,
+        "strategy": strategy,
+        "max_tasks": max_tasks,
+        "max_steps": max_steps,
+        "task_timeout_seconds": task_timeout,
+        "cleanup_timeout_seconds": cleanup_timeout,
+        "max_context_chars": max_context,
+        "max_llm_attempts": settings.llm_max_step_retries,
+        "llm_timeout_seconds": settings.llm_timeout_seconds,
+        "max_completion_tokens": settings.llm_max_completion_tokens,
+        "runtime_endpoint": args.endpoint or settings.scenario_runtime_endpoint,
+        "llm_base_url": settings.llm_base_url,
+        "verify_tls": verify_tls,
+    }
+    metadata = build_run_metadata(
+        repository,
+        configuration=configuration,
+        prompt=SYSTEM_PROMPT + "\n\n" + STRUCTURED_OUTPUT_INSTRUCTION,
+        schema=NEXT_STEP_RESPONSE_FORMAT,
+        secrets=secrets,
+    )
+    sink.record("run_prepared", metadata=metadata)
+    client = None
+    agent = None
+    result = None
+    failure: BaseException | None = None
     try:
-        llm = OpenAIStructuredStepClient(
-            base_url=settings.llm_base_url,
-            api_key=llm_api_key,
-            model=model,
-            timeout_seconds=settings.llm_timeout_seconds,
-            max_completion_tokens=settings.llm_max_completion_tokens,
-            max_retries=settings.llm_max_step_retries,
-        )
-        client = RemoteBenchmarkClient(
-            endpoint=args.endpoint or settings.scenario_runtime_endpoint,
-            token=runtime_token,
-            verify_tls=verify_tls,
-            run_label=args.run_label or settings.remote_run_label,
-            agent_name=agent_name,
-            model_name=model,
-            arena=args.arena or settings.scenario_runtime_arena,
-            metadata={
-                "agent": agent_name,
-                "implementation": "structured-generation-scenario-runtime-grpc",
-                "model": model,
-            },
-        )
-        async with llm, client:
-            if client.run is None:
-                raise RuntimeError("Remote runtime did not provide an active run.")
-            recorder.record(
-                "run_started",
-                run_id=client.run.run_id,
-                model=model,
-                agent_name=agent_name,
-                limits={"max_tasks": max_tasks, "max_steps": max_steps},
-            )
-            result = await SimpleSGRAgent(
-                llm,
-                max_steps=max_steps,
-                max_tasks=max_tasks,
-                recorder=recorder,
-            ).run(client)
-    except BaseException as error:
-        recorder.record("run_failed", error_type=type(error).__name__)
-        print(f"Artifacts: {recorder.directory}", file=sys.stderr)
-        raise
+        with RunLock(runtime_state) as lock:
 
-    result_payload = result.model_dump(mode="json")
-    recorder.record("run_finished", run_id=result.run_id, cleanup_succeeded=True)
-    recorder.write_result(result_payload)
-    print(json.dumps(result_payload, indent=2, sort_keys=True))
-    print(f"Artifacts: {recorder.directory}", file=sys.stderr)
+            def observe(event: str, payload: Any) -> None:
+                lock.observe(event, payload)
+                if event in {"cleanup_started", "cleanup_finished"}:
+                    sink.record(event, **asdict(payload))
+                elif event == "create_started":
+                    sink.record(event, idempotency_key=payload.idempotency_key, run_id=None)
+                elif event == "create_finished":
+                    sink.update_context(run_id=payload.run_id)
+                    sink.record(event, run_id=payload.run_id, state=payload.state)
+                elif event == "create_failed":
+                    sink.record(event, error_type=type(payload).__name__)
+
+            llm = OpenAIStructuredStepClient(
+                base_url=settings.llm_base_url,
+                api_key=llm_api_key,
+                model=model,
+                timeout_seconds=settings.llm_timeout_seconds,
+                max_completion_tokens=settings.llm_max_completion_tokens,
+                max_retries=settings.llm_max_step_retries,
+                event_sink=sink,
+            )
+            # LLM enters first so constructor/entry failures still close its resources.
+            async with llm:
+                client = RemoteBenchmarkClient(
+                    endpoint=configuration["runtime_endpoint"],
+                    token=runtime_token,
+                    verify_tls=verify_tls,
+                    run_label=args.run_label or settings.remote_run_label,
+                    agent_name=agent_name,
+                    model_name=model,
+                    arena=args.arena or settings.scenario_runtime_arena,
+                    metadata={
+                        "agent": agent_name,
+                        "implementation": "structured-generation-scenario-runtime-grpc",
+                        "model": model,
+                    },
+                    lifecycle_observer=observe,
+                    cleanup_timeout_seconds=cleanup_timeout,
+                )
+                async with client:
+                    if client.run is None:
+                        raise RuntimeError("Remote runtime did not provide an active run.")
+                    sink.update_context(run_id=client.run.run_id)
+                    sink.record(
+                        "run_started",
+                        model=model,
+                        agent_name=agent_name,
+                        limits={"max_tasks": max_tasks, "max_steps": max_steps},
+                        strategy=strategy,
+                    )
+                    agent = SimpleSGRAgent(
+                        llm,
+                        max_steps=max_steps,
+                        max_tasks=max_tasks,
+                        recorder=sink,
+                        strategy=strategy,
+                        max_context_chars=max_context,
+                        task_timeout_seconds=task_timeout,
+                    )
+                    result = await agent.run(client)
+    except BaseException as error:
+        failure = error
+        sink.record("run_failed", error_type=type(error).__name__)
+    finally:
+        cleanup = getattr(client, "cleanup_outcome", None)
+        cleanup_payload = asdict(cleanup) if cleanup is not None else None
+        category = _error_category(failure or getattr(agent, "last_error", None))
+        if cleanup is not None and (
+            cleanup.status in {"unknown", "closing_acknowledged"}
+            or (cleanup.status == "failed" and cleanup.run_id is not None)
+        ):
+            category = "unknown_run_state"
+        if category is None and result is not None and result.failed_tasks:
+            category = "task_incomplete"
+        task_results = getattr(agent, "task_results", [])
+        payload = (
+            result.model_dump(mode="json")
+            if result is not None
+            else {
+                "run_id": sink.context.get("run_id"),
+                "task_results": [item.model_dump(mode="json") for item in task_results],
+                "successful_tasks": sum(
+                    item.completion_reason == "terminated" for item in task_results
+                ),
+                "failed_tasks": sum(
+                    item.completion_reason != "terminated" for item in task_results
+                ),
+            }
+        )
+        checks = getattr(agent, "provenance_checks", [])
+        successful = payload["successful_tasks"]
+        payload["provenance_verified"] = (
+            all(checks) if successful and len(checks) == successful else None
+        )
+        payload.update(
+            status="completed" if failure is None and category is None else "failed",
+            error_category=category,
+            cleanup=cleanup_payload,
+            metadata=metadata,
+            error_type=type(failure).__name__ if failure is not None else None,
+        )
+        sink.record("run_finished", status=payload["status"], cleanup=cleanup_payload)
+        sink.write_result(payload)
+        payload["artifact_errors"] = sink.artifact_errors
+        print(json.dumps(redact(payload, secrets), indent=2, sort_keys=True))
+        print(f"Artifacts: {recorder.directory}", file=sys.stderr)
+    if failure is not None:
+        raise failure
+    if cleanup is not None and cleanup.status != "closed_confirmed":
+        raise RemoteOutcomeUnknownError("Remote cleanup was not confirmed; see run artifacts.")
+    if result is None:
+        raise RuntimeError("No authoritative run result was received.")
     return result
 
 

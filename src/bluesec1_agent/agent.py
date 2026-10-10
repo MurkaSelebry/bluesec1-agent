@@ -1,5 +1,8 @@
+import asyncio
 import json
-from typing import Any
+import math
+from dataclasses import asdict
+from typing import Any, Literal
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
@@ -96,6 +99,9 @@ class SimpleSGRAgent:
         max_steps: int = 100,
         max_tasks: int | None = None,
         recorder: RunRecorder | None = None,
+        strategy: Literal["baseline", "v2"] = "baseline",
+        max_context_chars: int = 24_000,
+        task_timeout_seconds: float = 900.0,
     ) -> None:
         """Store the LLM dependency and per-task step limit.
 
@@ -112,10 +118,22 @@ class SimpleSGRAgent:
             raise ValueError("max_steps must be between 1 and 100")
         if max_tasks is not None and max_tasks < 1:
             raise ValueError("max_tasks must be positive or None")
+        if strategy not in {"baseline", "v2"}:
+            raise ValueError("strategy must be baseline or v2")
+        if max_context_chars < 1000:
+            raise ValueError("max_context_chars must be at least 1000")
+        if not math.isfinite(task_timeout_seconds) or task_timeout_seconds <= 0:
+            raise ValueError("task_timeout_seconds must be positive and finite")
         self.llm = llm
         self.max_steps = max_steps
         self.max_tasks = max_tasks
         self.recorder = recorder
+        self.strategy = strategy
+        self.max_context_chars = max_context_chars
+        self.task_timeout_seconds = task_timeout_seconds
+        self.task_results: list[TaskResult] = []
+        self.last_error: BaseException | None = None
+        self.provenance_checks: list[bool] = []
 
     async def run(self, client: RemoteBenchmarkClient) -> AgentRunResult:
         """Consume the remote queue and aggregate authoritative task results.
@@ -133,7 +151,10 @@ class SimpleSGRAgent:
         if remote_run is None:
             raise RuntimeError("RemoteBenchmarkClient must be open before running the agent.")
 
-        task_results: list[TaskResult] = []
+        self.task_results = []
+        self.last_error = None
+        self.provenance_checks = []
+        task_results = self.task_results
         while self.max_tasks is None or len(task_results) < self.max_tasks:
             session = await client.start_task()
             if session is None:
@@ -142,19 +163,32 @@ class SimpleSGRAgent:
             self._record(
                 "task_started", task_id=session.task_id, observation=session.task.observation
             )
-            try:
-                task_result = await self._investigate(session)
-            except Exception as exc:
-                logger.error("Task {} failed: {}", session.task_id, type(exc).__name__)
-                self._record(
-                    "task_error",
-                    task_id=session.task_id,
-                    error_type=type(exc).__name__,
-                    message=str(exc),
-                )
-                error_message = f"Agent failed: {type(exc).__name__}. See local trace."
-                aborted_result = await session.abort_task(error_message=error_message)
-                task_result = TaskResult.model_validate(aborted_result)
+            self._update_context(task_id=session.task_id, step=None)
+            if hasattr(self.llm, "budget"):
+                from bluesec1_agent.budget import Budget
+
+                self.llm.budget = Budget(self.task_timeout_seconds)
+            async with asyncio.timeout(self.task_timeout_seconds):
+                try:
+                    task_result = await self._investigate(session)
+                except Exception as exc:
+                    self.last_error = exc
+                    logger.error("Task {} failed: {}", session.task_id, type(exc).__name__)
+                    self._record(
+                        "task_error",
+                        task_id=session.task_id,
+                        error_type=type(exc).__name__,
+                    )
+                    state = getattr(session, "terminal_state", "active")
+                    known_result = getattr(session, "terminal_result", None)
+                    if state == "terminal" and known_result is not None:
+                        task_result = TaskResult.model_validate(known_result)
+                    elif state != "active":
+                        raise
+                    else:
+                        error_message = f"Agent failed: {type(exc).__name__}. See local trace."
+                        aborted_result = await session.abort_task(error_message=error_message)
+                        task_result = TaskResult.model_validate(aborted_result)
             task_results.append(task_result)
             self._record(
                 "task_finished",
@@ -224,8 +258,48 @@ class SimpleSGRAgent:
             },
         ]
 
+        from bluesec1_agent.context import build_context
+        from bluesec1_agent.evidence import EvidenceStore
+        from bluesec1_agent.provenance import validate_navigation, validate_submission
+
+        # Baseline uses the same passive evidence audit without changing its decisions.
+        store = EvidenceStore()
+        store.seed_observation(observation)
+        initial_messages = list(messages)
+        last_decision = None
+        last_feedback: dict[str, Any] = {}
         previous_reads: dict[str, dict[str, Any]] = {}
         for step_index in range(1, self.max_steps + 1):
+            self._update_context(task_id=session.task_id, step=step_index)
+            if self.strategy == "v2":
+                evidence = build_context(
+                    store,
+                    trigger_ids=store.trigger_ids,
+                    max_chars=self.max_context_chars,
+                    remaining_steps=self.max_steps - step_index + 1,
+                )
+                messages = list(initial_messages)
+                if last_decision is not None:
+                    messages.append({"role": "assistant", "content": last_decision})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": render_json(
+                            {
+                                "evidence": evidence,
+                                "feedback": last_feedback,
+                                "remaining_steps": self.max_steps - step_index + 1,
+                            }
+                        ),
+                    }
+                )
+                self._record(
+                    "frontier_snapshot",
+                    task_id=session.task_id,
+                    step=step_index,
+                    context_chars=len(render_json(evidence)),
+                    coverage=evidence.get("coverage"),
+                )
             step = await self.llm.next_step(messages)
             tool_name = step.function.tool
             arguments = step.function.model_dump(
@@ -254,6 +328,12 @@ class SimpleSGRAgent:
                     },
                 }
             )
+            violations = []
+            if store is not None:
+                if tool_name == "finish_investigation":
+                    violations = validate_submission(step.function.submission, store)
+                else:
+                    violations = validate_navigation(tool_name, arguments, store)
 
             if tool_name not in available_tools:
                 feedback: dict[str, Any] = {
@@ -282,6 +362,19 @@ class SimpleSGRAgent:
                     reason="runtime_schema",
                     violations=schema_errors,
                 )
+            elif violations and self.strategy == "v2":
+                reason = (
+                    "submission_rejected"
+                    if tool_name == "finish_investigation"
+                    else "action_rejected"
+                )
+                feedback = {
+                    "status": "error",
+                    "reason": reason,
+                    "message": "Evidence references must be supported by observed data.",
+                    "violations": [asdict(violation) for violation in violations],
+                }
+                self._record(reason, task_id=session.task_id, step=step_index, **feedback)
             elif call_key in previous_reads:
                 feedback = {
                     **previous_reads[call_key],
@@ -291,7 +384,17 @@ class SimpleSGRAgent:
                     ),
                 }
                 logger.info("Reused the previous result of {} locally.", tool_name)
+                self._record(
+                    "cache_hit", task_id=session.task_id, step=step_index, tool_name=tool_name
+                )
             else:
+                self._record(
+                    "tool_call_started",
+                    task_id=session.task_id,
+                    step=step_index,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                )
                 response = await session.call_tool(tool_name, arguments)
                 feedback = self._tool_feedback(response)
                 logger.info(
@@ -305,11 +408,45 @@ class SimpleSGRAgent:
                     step=step_index,
                     response=response.model_dump(mode="json"),
                 )
+                self._record(
+                    "tool_call_finished",
+                    task_id=session.task_id,
+                    step=step_index,
+                    tool_name=tool_name,
+                    status=feedback.get("status"),
+                    terminated=response.terminated,
+                    truncated=response.truncated,
+                )
                 if response.task_result is not None:
+                    if tool_name == "finish_investigation":
+                        valid = not violations
+                        self.provenance_checks.append(valid)
+                        self._record(
+                            "provenance_validated",
+                            task_id=session.task_id,
+                            step=step_index,
+                            valid=valid,
+                        )
                     return TaskResult.model_validate(response.task_result)
                 if response.terminated or response.truncated:
                     raise RuntimeError("The runtime ended a task without a task_result.")
-                if tool_name != "finish_investigation":
+                if store is not None:
+                    store.ingest(
+                        step=step_index,
+                        tool_name=tool_name,
+                        arguments=arguments,
+                        result=feedback.get("result"),
+                        status=feedback.get("status", "unknown"),
+                    )
+                    self._record(
+                        "evidence_updated",
+                        task_id=session.task_id,
+                        step=step_index,
+                        known_objects=len(store),
+                    )
+                if tool_name != "finish_investigation" and (
+                    self.strategy == "baseline" or feedback.get("status") == "ok"
+                ):
                     previous_reads[call_key] = dict(feedback)
 
             remaining = self.max_steps - step_index
@@ -325,6 +462,13 @@ class SimpleSGRAgent:
                     "content": render_json(feedback),
                 }
             )
+            if self.strategy == "v2":
+                last_decision = step.model_dump_json(by_alias=True)
+                last_feedback = {key: value for key, value in feedback.items() if key != "result"}
+                if "result" in feedback:
+                    preview = render_json(feedback["result"])
+                    last_feedback["result_preview"] = preview[:2000]
+                    last_feedback["result_preview_truncated"] = len(preview) > 2000
 
         raise RuntimeError(
             f"Agent hit the {self.max_steps}-step limit without finish_investigation."
@@ -342,6 +486,11 @@ class SimpleSGRAgent:
                     type(exc).__name__,
                 )
                 self.recorder = None
+
+    def _update_context(self, **payload: Any) -> None:
+        update = getattr(self.recorder, "update_context", None)
+        if update is not None:
+            update(**payload)
 
     @staticmethod
     def _tool_specs(observation: dict[str, Any]) -> list[dict[str, Any]]:

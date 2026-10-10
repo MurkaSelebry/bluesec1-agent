@@ -322,7 +322,10 @@ def test_trace_records_initial_evidence_actions_and_terminal_result(tmp_path: Pa
     assert [event["event"] for event in events] == [
         "task_started",
         "step_selected",
+        "tool_call_started",
         "tool_result",
+        "tool_call_finished",
+        "provenance_validated",
         "task_finished",
     ]
     assert events[0]["payload"]["observation"]["alert_text"] == {"trigger_entities": []}

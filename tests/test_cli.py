@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from bluesec1_agent import cli
 from bluesec1_agent.agent import AgentRunResult
+from bluesec1_client.remote.client import CleanupOutcome
 
 
 def _settings() -> SimpleNamespace:
@@ -27,6 +28,11 @@ def _settings() -> SimpleNamespace:
         llm_max_completion_tokens=4096,
         llm_max_step_retries=2,
         agent_max_steps=80,
+        agent_strategy="v2",
+        task_timeout_seconds=900,
+        cleanup_timeout_seconds=30,
+        max_context_chars=24000,
+        runtime_state_dir=None,
     )
 
 
@@ -70,11 +76,20 @@ def test_parser_defaults_to_one_task_and_requires_explicit_full_queue() -> None:
 
 
 def test_parser_selects_baseline_or_v2_with_bounded_execution(tmp_path: Path) -> None:
-    args = cli.build_parser().parse_args([
-        "--strategy", "baseline", "--task-timeout-seconds", "900",
-        "--cleanup-timeout-seconds", "30", "--max-context-chars", "24000",
-        "--runtime-state-dir", str(tmp_path),
-    ])
+    args = cli.build_parser().parse_args(
+        [
+            "--strategy",
+            "baseline",
+            "--task-timeout-seconds",
+            "900",
+            "--cleanup-timeout-seconds",
+            "30",
+            "--max-context-chars",
+            "24000",
+            "--runtime-state-dir",
+            str(tmp_path),
+        ]
+    )
     assert args.strategy == "baseline"
     assert args.task_timeout_seconds == 900
     assert args.cleanup_timeout_seconds == 30
@@ -124,6 +139,7 @@ def test_run_records_lifecycle_after_cleanup_and_prints_artifact_path(
         def __init__(self, **kwargs: object) -> None:
             captured["client_kwargs"] = kwargs
             self.run = SimpleNamespace(run_id="run-123")
+            self.cleanup_outcome = CleanupOutcome("closed_confirmed", "run-123")
 
         async def __aenter__(self) -> "FakeClient":
             sequence.append("client_entered")
@@ -192,6 +208,7 @@ def test_run_records_lifecycle_after_cleanup_and_prints_artifact_path(
         "timeout_seconds": 30.0,
         "max_completion_tokens": 4096,
         "max_retries": 2,
+        "event_sink": ANY,
     }
     client_kwargs = captured["client_kwargs"]
     assert isinstance(client_kwargs, dict)
@@ -210,52 +227,32 @@ def test_run_records_lifecycle_after_cleanup_and_prints_artifact_path(
         "max_steps": expected_max_steps,
         "max_tasks": expected_max_tasks,
         "recorder": ANY,
+        "strategy": "v2",
+        "task_timeout_seconds": 900,
+        "max_context_chars": 24000,
     }
-    assert sequence == [
-        "llm_entered",
-        "client_entered",
-        (
-            "run_started",
-            {
-                "run_id": "run-123",
-                "model": "cli-model",
-                "agent_name": "cli-agent",
-                "limits": {
-                    "max_tasks": expected_max_tasks,
-                    "max_steps": expected_max_steps,
-                },
-            },
-        ),
-        "agent_ran",
-        "client_exited",
-        "llm_exited",
-        ("run_finished", {"run_id": "run-123", "cleanup_succeeded": True}),
-        (
-            "write_result",
-            {
-                "run_id": "run-123",
-                "successful_tasks": 1,
-                "failed_tasks": 0,
-                "task_results": [],
-            },
-        ),
-    ]
+    events = [item for item in sequence if isinstance(item, tuple)]
+    saved = next(payload for event, payload in events if event == "write_result")
+    assert sequence.index("client_exited") < sequence.index(("write_result", saved))
+    assert sequence.index("llm_exited") < sequence.index(("write_result", saved))
+    assert saved["cleanup"]["status"] == "closed_confirmed"
+    assert saved["status"] == "completed"
+    assert saved["metadata"]["configuration"]["strategy"] == "v2"
+    assert saved["metadata"]["configuration"]["max_steps"] == expected_max_steps
+    assert saved["task_results"] == []
     output = capsys.readouterr()
-    assert json.loads(output.out) == {
-        "run_id": "run-123",
-        "successful_tasks": 1,
-        "failed_tasks": 0,
-        "task_results": [],
-    }
+    assert json.loads(output.out) == saved
     assert output.err == f"Artifacts: {tmp_path / 'run-artifacts'}\n"
 
 
 @pytest.mark.parametrize("failure", [RuntimeError("provider failed"), KeyboardInterrupt()])
+@pytest.mark.parametrize("broken_recorder", [False, True])
 def test_run_records_minimal_failure_and_closes_contexts(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     failure: BaseException,
+    broken_recorder: bool,
 ) -> None:
     """Provider failures and interrupts must close the remote run without logging secrets."""
     sequence: list[object] = []
@@ -263,6 +260,7 @@ def test_run_records_minimal_failure_and_closes_contexts(
     class FakeContext:
         def __init__(self, **kwargs: object) -> None:
             self.run = SimpleNamespace(run_id="run-failure")
+            self.cleanup_outcome = CleanupOutcome("closed_confirmed", "run-failure")
 
         async def __aenter__(self) -> "FakeContext":
             sequence.append("entered")
@@ -282,9 +280,13 @@ def test_run_records_minimal_failure_and_closes_contexts(
 
         def record(self, event: str, **payload: object) -> None:
             sequence.append((event, payload))
+            if broken_recorder:
+                raise OSError("synthetic disk failure llm-secret")
 
         def write_result(self, result: dict[str, object]) -> None:
-            raise AssertionError("a failed run has no final result")
+            sequence.append(("write_result", result))
+            if broken_recorder:
+                raise OSError("synthetic disk failure runtime-setting-secret")
 
     class FailingAgent:
         def __init__(self, *args: object, **kwargs: object) -> None:
@@ -304,15 +306,20 @@ def test_run_records_minimal_failure_and_closes_contexts(
     with pytest.raises(type(failure)):
         asyncio.run(cli.run(args))
 
-    assert sequence[-3:] == [
-        ("exited", type(failure)),
-        ("exited", type(failure)),
-        ("run_failed", {"error_type": type(failure).__name__}),
-    ]
+    saved = next(
+        item[1] for item in sequence if isinstance(item, tuple) and item[0] == "write_result"
+    )
+    assert saved["status"] == "failed"
+    assert saved["error_category"] == "infrastructure"
+    assert saved["cleanup"]["status"] == "closed_confirmed"
+    assert saved["task_results"] == []
+    assert sequence.count(("exited", type(failure))) == 2
+    assert sequence.index(("exited", type(failure))) < sequence.index(("write_result", saved))
     output = capsys.readouterr()
     assert "runtime-setting-secret" not in output.err
     assert "llm-secret" not in output.err
-    assert output.err == f"Artifacts: {tmp_path / 'failure-artifacts'}\n"
+    assert f"Artifacts: {tmp_path / 'failure-artifacts'}\n" in output.err
+    assert ("artifact_error:" in output.err) is broken_recorder
 
 
 def test_main_exits_nonzero_after_a_persisted_failed_task(

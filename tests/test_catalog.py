@@ -39,10 +39,16 @@ def test_arguments_follow_nested_required_fields_and_namespace_schema():
 def test_schema_branch_selection_does_not_merge_benign_and_malicious_requirements():
     schema = {
         "oneOf": [
-            {"type": "object", "properties": {"verdict": {"const": "benign"}},
-             "required": ["verdict", "legitimacy_evidence"]},
-            {"type": "object", "properties": {"verdict": {"const": "malicious"}},
-             "required": ["verdict", "ir_artifacts"]},
+            {
+                "type": "object",
+                "properties": {"verdict": {"const": "benign"}},
+                "required": ["verdict", "legitimacy_evidence"],
+            },
+            {
+                "type": "object",
+                "properties": {"verdict": {"const": "malicious"}},
+                "required": ["verdict", "ir_artifacts"],
+            },
         ]
     }
     assert validate_arguments({"verdict": "malicious", "ir_artifacts": []}, schema) == []
@@ -55,3 +61,30 @@ def test_false_is_not_a_json_integer():
 def test_unknown_local_reference_is_a_compatibility_error():
     with pytest.raises(CatalogCompatibilityError, match="reference"):
         validate_arguments({}, {"$ref": "#/$defs/missing"})
+
+
+def test_unknown_required_argument_hidden_in_allof_is_rejected():
+    with pytest.raises(CatalogCompatibilityError, match="new_required"):
+        check_catalog(
+            [
+                {
+                    "name": "get_entity",
+                    "parameters": {
+                        "allOf": [{"required": ["entity_id"]}, {"required": ["new_required"]}],
+                    },
+                }
+            ]
+        )
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"$dynamicRef": "https://example.invalid/schema"},
+        {"$ref": "#/$defs/loop", "$defs": {"loop": {"$ref": "#/$defs/loop"}}},
+        {"$id": "https://example.invalid/schema", "type": "object"},
+    ],
+)
+def test_unsupported_or_recursive_schema_fails_during_catalog_preflight(schema):
+    with pytest.raises(CatalogCompatibilityError):
+        check_catalog([{"name": "get_entity", "parameters": schema}])

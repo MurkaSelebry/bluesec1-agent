@@ -65,7 +65,7 @@ class Settings(BaseSettings):
         default=3,
         validation_alias="LLM_MAX_STEP_RETRIES",
         ge=1,
-        le=5,
+        le=3,
     )
     agent_max_steps: int = Field(
         default=100,
