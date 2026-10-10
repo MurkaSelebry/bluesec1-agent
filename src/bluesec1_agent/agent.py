@@ -171,6 +171,7 @@ class SimpleSGRAgent:
         self.remote_outcome_unknown = False
         task_results = self.task_results
         while self.max_tasks is None or len(task_results) < self.max_tasks:
+            task_timeout = self._next_task_timeout()
             session = await client.start_task()
             if session is None:
                 break
@@ -179,8 +180,8 @@ class SimpleSGRAgent:
                 "task_started", task_id=session.task_id, observation=session.task.observation
             )
             self._update_context(task_id=session.task_id, step=None)
-            budget = Budget(self.task_timeout_seconds)
-            async with asyncio.timeout(self.task_timeout_seconds):
+            budget = Budget(task_timeout)
+            async with asyncio.timeout(task_timeout):
                 try:
                     task_result = await self._investigate(session, budget)
                 except Exception as exc:
@@ -230,6 +231,9 @@ class SimpleSGRAgent:
             failed_tasks=len(task_results) - successful_tasks,
             task_results=task_results,
         )
+
+    def _next_task_timeout(self) -> float:
+        return self.task_timeout_seconds
 
     async def _investigate(self, session: RemoteBenchmarkSession, budget: Budget) -> TaskResult:
         """Drive one leased task until its terminal investigation tool succeeds.

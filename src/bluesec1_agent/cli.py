@@ -4,7 +4,9 @@ import json
 import math
 import subprocess
 import sys
+import time
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ from bluesec1_agent.llm import (
     OpenAIStructuredStepClient,
 )
 from bluesec1_agent.models import NEXT_STEP_RESPONSE_FORMAT
+from bluesec1_agent.quality import QUALITY_PROMPT, QualitySubmissionAgent, allocate_task_seconds
 from bluesec1_agent.recording import RunRecorder, SafeEventSink, build_run_metadata, redact
 from bluesec1_agent.run_lock import RunLock, RunLockError
 from bluesec1_agent.settings import Settings
@@ -51,16 +54,29 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent-name", help="Override AGENT_NAME.")
     parser.add_argument("--arena", help="Override SCENARIO_RUNTIME_ARENA.")
     parser.add_argument("--model", help="Override LLM_DEFAULT_MODEL.")
-    parser.add_argument(
+    submission_mode = parser.add_mutually_exclusive_group()
+    submission_mode.add_argument(
         "--deadline-submit",
         action="store_true",
         help="Opt in to bounded one-decision submission with an explicit incomplete fallback.",
     )
-    parser.add_argument(
+    submission_mode.add_argument(
         "--submission-only",
         action="store_true",
         help="Submit explicit incomplete baselines without model or graph calls.",
     )
+    submission_mode.add_argument(
+        "--quality-submit",
+        action="store_true",
+        help="Bound graph reads and final reasoning by a run deadline.",
+    )
+    parser.add_argument(
+        "--quality-deadline",
+        type=_deadline_epoch,
+        default=None,
+        help="Timezone-aware ISO timestamp for quality run completion.",
+    )
+    parser.add_argument("--quality-advisory-dir", type=Path, default=None)
     parser.add_argument("--strategy", choices=("baseline", "v2"), default=None)
     parser.add_argument("--task-timeout-seconds", type=_positive_float, default=None)
     parser.add_argument("--cleanup-timeout-seconds", type=_positive_float, default=None)
@@ -118,6 +134,16 @@ def _runtime_state_directory(repository: Path) -> Path:
         return repository / "reports" / "goals" / "runtime-state"
 
 
+def _deadline_epoch(value: str) -> float:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("Timezone required")
+        return parsed.timestamp()
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("Use an ISO timestamp with timezone.") from error
+
+
 def _error_category(error: BaseException | None) -> str | None:
     if error is None:
         return None
@@ -150,10 +176,21 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
     max_tasks = None if args.all_tasks else args.max_tasks
     strategy = args.strategy or settings.agent_strategy
     deadline_submit = submission_only or getattr(args, "deadline_submit", False)
+    quality_submit = getattr(args, "quality_submit", False)
+    quality_deadline = getattr(args, "quality_deadline", None)
     task_timeout = args.task_timeout_seconds or (
-        30.0 if deadline_submit else settings.task_timeout_seconds
+        60.0 if quality_submit else (30.0 if deadline_submit else settings.task_timeout_seconds)
     )
     cleanup_timeout = args.cleanup_timeout_seconds or settings.cleanup_timeout_seconds
+    if quality_submit:
+        if quality_deadline is None or max_tasks is None:
+            raise ValueError("Quality mode requires --quality-deadline and bounded --max-tasks.")
+        allocate_task_seconds(
+            quality_deadline - time.time(),
+            max_tasks,
+            cleanup_seconds=cleanup_timeout + 5,
+            lease_seconds=8,
+        )
     max_context = args.max_context_chars or settings.max_context_chars
     runtime_state = (
         args.runtime_state_dir or settings.runtime_state_dir or _runtime_state_directory(repository)
@@ -175,14 +212,22 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
         "deadline_submit": deadline_submit,
         "submission_only": submission_only,
         "model_invoked": False if submission_only else None,
+        "quality_submit": quality_submit,
+        "quality_deadline_epoch": quality_deadline,
         "max_tasks": max_tasks,
         "max_steps": max_steps,
         "task_timeout_seconds": task_timeout,
         "cleanup_timeout_seconds": cleanup_timeout,
         "max_context_chars": max_context,
-        "max_llm_attempts": 1 if deadline_submit else settings.llm_max_step_retries,
-        "llm_timeout_seconds": 8.0 if deadline_submit else settings.llm_timeout_seconds,
-        "max_completion_tokens": 1024 if deadline_submit else settings.llm_max_completion_tokens,
+        "max_llm_attempts": 1
+        if deadline_submit or quality_submit
+        else settings.llm_max_step_retries,
+        "llm_timeout_seconds": 45.0
+        if quality_submit
+        else (8.0 if deadline_submit else settings.llm_timeout_seconds),
+        "max_completion_tokens": 4096
+        if quality_submit
+        else (1024 if deadline_submit else settings.llm_max_completion_tokens),
         "runtime_endpoint": args.endpoint or settings.scenario_runtime_endpoint,
         "arena": args.arena or settings.scenario_runtime_arena,
         "llm_base_url": settings.llm_base_url,
@@ -191,10 +236,16 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
     metadata = build_run_metadata(
         repository,
         configuration=configuration,
-        prompt=(DEADLINE_PROMPT if deadline_submit else SYSTEM_PROMPT)
+        prompt=(
+            QUALITY_PROMPT
+            if quality_submit
+            else (DEADLINE_PROMPT if deadline_submit else SYSTEM_PROMPT)
+        )
         + "\n\n"
         + STRUCTURED_OUTPUT_INSTRUCTION,
-        schema=FINISH_ONLY_RESPONSE_FORMAT if deadline_submit else NEXT_STEP_RESPONSE_FORMAT,
+        schema=FINISH_ONLY_RESPONSE_FORMAT
+        if deadline_submit or quality_submit
+        else NEXT_STEP_RESPONSE_FORMAT,
         secrets=secrets,
     )
     sink.record("run_prepared", metadata=metadata)
@@ -255,7 +306,7 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                                 channel_close=5,
                             ),
                         }
-                        if deadline_submit
+                        if deadline_submit or quality_submit
                         else {}
                     ),
                 )
@@ -273,6 +324,8 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                     agent_type = (
                         SubmissionOnlyAgent
                         if submission_only
+                        else QualitySubmissionAgent
+                        if quality_submit
                         else DeadlineSubmissionAgent
                         if deadline_submit
                         else SimpleSGRAgent
@@ -285,6 +338,15 @@ async def run(args: argparse.Namespace) -> AgentRunResult:
                         strategy=strategy,
                         max_context_chars=max_context,
                         task_timeout_seconds=task_timeout,
+                        **(
+                            {
+                                "deadline_epoch": quality_deadline,
+                                "advisory_dir": args.quality_advisory_dir,
+                                "cleanup_reserve_seconds": cleanup_timeout + 5,
+                            }
+                            if quality_submit
+                            else {}
+                        ),
                     )
                     result = await agent.run(client)
     except BaseException as error:
